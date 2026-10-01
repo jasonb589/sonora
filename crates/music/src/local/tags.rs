@@ -11,6 +11,7 @@ use lofty::mpeg::MpegFile;
 use lofty::prelude::{Accessor, ItemKey};
 use lofty::probe::Probe;
 use lofty::tag::Tag;
+use lofty::tag::TagType;
 use lofty::tag::items::Timestamp;
 
 use crate::engine::Loudness;
@@ -47,7 +48,7 @@ pub fn read(path: &Path) -> Result<TrackTags> {
         publisher: held(tag, ItemKey::Publisher),
         isrc: held(tag, ItemKey::Isrc),
         comment: text(tag.comment()),
-        lyrics: held(tag, ItemKey::Lyrics),
+        lyrics: lyrics_held(tag),
     })
 }
 
@@ -205,7 +206,7 @@ pub fn write(path: &Path, tags: &TrackTags) -> Result<()> {
         set(tag, ItemKey::Publisher, &tags.publisher);
         set(tag, ItemKey::Isrc, &tags.isrc);
         set(tag, ItemKey::Comment, &tags.comment);
-        set(tag, ItemKey::Lyrics, &tags.lyrics);
+        set_lyrics(tag, &tags.lyrics);
 
         counted(tag, ItemKey::TrackNumber, &tags.track_number);
         counted(tag, ItemKey::TrackTotal, &tags.track_total);
@@ -311,6 +312,17 @@ fn held(tag: &Tag, key: ItemKey) -> String {
     tag.get_string(key).map(str::to_owned).unwrap_or_default()
 }
 
+/// The lyrics a tag holds. ID3v2 has no key for the general one and keeps unsynchronized lyrics
+/// in its USLT frame, which is `UnsyncLyrics`, so asking a file for `Lyrics` alone finds nothing
+/// in an mp3. A vorbis comment or an m4a answers to `Lyrics`, and either spelling is tried.
+fn lyrics_held(tag: &Tag) -> String {
+    let lyrics = held(tag, ItemKey::Lyrics);
+    match lyrics.trim().is_empty() {
+        true => held(tag, ItemKey::UnsyncLyrics),
+        false => lyrics,
+    }
+}
+
 /// A ReplayGain value such as `-7.23 dB`, read as its number of decibels.
 fn decibels(value: &str) -> Option<f32> {
     value
@@ -362,6 +374,24 @@ fn set(tag: &mut Tag, key: ItemKey, value: &str) {
         false => {
             tag.insert_text(key, value.to_owned());
         }
+    }
+}
+
+/// Writes lyrics under the key the tag's own format keeps them in, and clears both spellings
+/// when they are taken out: ID3v2 reaches unsynchronized lyrics only through `UnsyncLyrics`, so
+/// writing `Lyrics` into an mp3 stores nothing, while a vorbis comment keeps them under `Lyrics`.
+fn set_lyrics(tag: &mut Tag, lyrics: &str) {
+    if lyrics.trim().is_empty() {
+        for key in [ItemKey::Lyrics, ItemKey::UnsyncLyrics] {
+            if tag.get_string(key).is_some() {
+                set(tag, key, "");
+            }
+        }
+        return;
+    }
+    match tag.tag_type() {
+        TagType::Id3v2 => set(tag, ItemKey::UnsyncLyrics, lyrics),
+        _ => set(tag, ItemKey::Lyrics, lyrics),
     }
 }
 
@@ -516,6 +546,41 @@ pub(super) mod tests {
             stored(&path).get_string(ItemKey::RecordingDate),
             Some("2010")
         );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn lyrics_written_into_an_id3v2_tag_come_back() {
+        let mut tag = Tag::new(TagType::Id3v2);
+
+        set_lyrics(&mut tag, "first line\nsecond line");
+
+        assert_eq!(lyrics_held(&tag), "first line\nsecond line");
+    }
+
+    #[test]
+    fn clearing_lyrics_takes_them_out_of_either_spelling() {
+        let mut tag = Tag::new(TagType::VorbisComments);
+        set(&mut tag, ItemKey::Lyrics, "one");
+        set(&mut tag, ItemKey::UnsyncLyrics, "two");
+
+        set_lyrics(&mut tag, "");
+
+        assert!(lyrics_held(&tag).is_empty());
+    }
+
+    #[test]
+    fn unsynchronized_lyrics_in_a_flac_are_read() {
+        let dir = scratch("sonora-tags-test-unsync-lyrics");
+        let path = dir.join("song.flac");
+        flac(
+            &path,
+            &["TITLE=Song", "UNSYNCEDLYRICS=first line\nsecond line"],
+        );
+
+        let found = lyrics(&path).unwrap().expect("the file carries lyrics");
+
+        assert_eq!(found, Lyrics::plain("first line\nsecond line"));
         std::fs::remove_dir_all(&dir).ok();
     }
 }
