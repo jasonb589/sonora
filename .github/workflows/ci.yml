@@ -1,8 +1,8 @@
 name: ci
 
-# Only the target this copy ships. A pull request costs one windows job, which formats and lints
-# the workspace: no release build runs here at all, because the windows workflow cuts the installer
-# on demand, and the tests are a checkout's own business rather than this one's.
+# Only the target this copy ships. A pull request costs one windows job, which formats, lints and
+# tests the workspace, instead of a linux check plus a macOS and a Windows lint, and no release
+# build runs here at all: the windows workflow cuts the installer on demand.
 on:
   push:
     branches: [dev]
@@ -22,7 +22,7 @@ env:
 
 jobs:
   check:
-    name: fmt and clippy
+    name: fmt, clippy and tests
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -42,6 +42,9 @@ jobs:
 
       - name: clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      - name: tests
+        run: cargo test --workspace --locked
 
       - name: sccache stats
         if: always()
