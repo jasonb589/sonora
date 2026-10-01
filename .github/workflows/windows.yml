@@ -48,16 +48,10 @@ jobs:
         if: always()
         run: sccache --show-stats
 
-      # The installer carries this copy, and it is the one that can be run without installing.
-      - name: stage the executable
+      # Inno Setup writes into this directory, so it has to exist before the script runs.
+      - name: prepare the output directory
         shell: pwsh
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          Copy-Item `
-            "target/x86_64-pc-windows-msvc/release/sonora.exe" `
-            "dist/sonora-$env:VERSION-x86_64-pc-windows-msvc.exe"
+        run: New-Item -ItemType Directory -Force dist | Out-Null
 
       # The same steps the release workflow takes, for the one target it can take here.
       - name: install Inno Setup
@@ -91,7 +85,7 @@ jobs:
           # sooner, because private repositories share a small storage allowance.
           retention-days: 7
 
-      # The artifact expires after ninety days; a release asset is the link to hand out.
+      # The run artifact above is the throwaway copy; the release asset is the link to hand out.
       - name: publish the release
         shell: pwsh
         env:
