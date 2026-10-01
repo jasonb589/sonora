@@ -16,6 +16,7 @@ pub mod lrclib;
 pub mod lyrics;
 mod models;
 pub mod musixmatch;
+pub mod navidrome;
 pub mod netease;
 pub mod potoken;
 pub mod progress;

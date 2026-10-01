@@ -2886,6 +2886,7 @@ impl SettingsView {
             ("Kugou", "settings-lyrics-provider-kugou"),
             ("NetEase", "settings-lyrics-provider-netease"),
             ("Subsonic", "settings-lyrics-provider-subsonic"),
+            ("Navidrome", "settings-lyrics-provider-navidrome"),
         ];
         let count = providers
             .iter()

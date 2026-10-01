@@ -444,6 +444,7 @@ impl Default for Values {
                 "Musixmatch",
                 "LrcLib",
                 "Subsonic",
+                "Navidrome",
             ]
             .map(str::to_owned)
             .to_vec(),
