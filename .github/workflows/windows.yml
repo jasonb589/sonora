@@ -87,6 +87,9 @@ jobs:
           name: windows-installer
           path: dist/*
           if-no-files-found: error
+          # The release keeps the installer; this copy is for the run page and expires
+          # sooner, because private repositories share a small storage allowance.
+          retention-days: 7
 
       # The artifact expires after ninety days; a release asset is the link to hand out.
       - name: publish the release
