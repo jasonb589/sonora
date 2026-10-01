@@ -443,6 +443,7 @@ impl Default for Values {
                 "Apple Music",
                 "Musixmatch",
                 "LrcLib",
+                "Subsonic",
             ]
             .map(str::to_owned)
             .to_vec(),

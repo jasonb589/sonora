@@ -720,7 +720,7 @@ fn read(line: &str) -> Vec<LyricsLine> {
     }
 
     let (rest, closed) = closed_at(rest);
-    let (text, words) = spoken(rest);
+    let (text, words) = spoken(rest, stamps.first().copied());
     stamps
         .into_iter()
         .map(|start| LyricsLine {
@@ -773,7 +773,7 @@ fn closed_at(rest: &str) -> (&str, Option<Duration>) {
     (text, Some(at))
 }
 
-fn spoken(body: &str) -> (String, Option<Vec<LyricsWord>>) {
+fn spoken(body: &str, at: Option<Duration>) -> (String, Option<Vec<LyricsWord>>) {
     let segments = cut(body);
     let whole: String = segments
         .iter()
@@ -788,6 +788,23 @@ fn spoken(body: &str) -> (String, Option<Vec<LyricsWord>>) {
     }
 
     let mut words = Vec::new();
+    // A sheet that stamps each character puts its first character between the line's own stamp and
+    // the next one, which leaves that character outside the timed segments.
+    if let Some(first) = segments
+        .first()
+        .filter(|segment| segment.at.is_none() && !segment.text.trim().is_empty())
+    {
+        words.push(LyricsWord {
+            start: at.unwrap_or(Duration::ZERO),
+            end: timed
+                .first()
+                .and_then(|segment| segment.at)
+                .unwrap_or_default()
+                .max(at.unwrap_or(Duration::ZERO)),
+            text: first.text.clone(),
+        });
+    }
+
     for (index, segment) in timed.iter().enumerate() {
         let start = segment.at.expect("a timed segment carries a stamp");
         if segment.text.is_empty() {
@@ -813,17 +830,18 @@ fn spoken(body: &str) -> (String, Option<Vec<LyricsWord>>) {
     (whole, (!words.is_empty()).then_some(words))
 }
 
+/// Splits a body at the stamps between its words, if it carries any: the `<00:12.50>` of an
+/// enhanced sheet and the `[00:12.500]` a per-character one writes between its characters. What is
+/// left of a marker is text, so a bracket that holds anything else stays where it is.
 fn cut(body: &str) -> Vec<Segment> {
     let mut segments = vec![Segment {
         at: None,
         text: String::new(),
     }];
     let mut rest = body;
-    while let Some(open) = rest.find('<') {
-        let tail = &rest[open + 1..];
-        let Some(shut) = tail.find('>') else { break };
+    while let Some((open, shut)) = next_mark(rest) {
         let last = segments.last_mut().expect("a segment is always open");
-        match stamp_of(&tail[..shut]) {
+        match stamp_of(&rest[open + 1..shut]) {
             Some(at) => {
                 last.text.push_str(&rest[..open]);
                 segments.push(Segment {
@@ -831,9 +849,9 @@ fn cut(body: &str) -> Vec<Segment> {
                     text: String::new(),
                 });
             }
-            None => last.text.push_str(&rest[..open + shut + 2]),
+            None => last.text.push_str(&rest[..shut + 1]),
         }
-        rest = &tail[shut + 1..];
+        rest = &rest[shut + 1..];
     }
     segments
         .last_mut()
@@ -841,6 +859,24 @@ fn cut(body: &str) -> Vec<Segment> {
         .text
         .push_str(rest);
     segments
+}
+
+/// The first `<>` or `[]` marker in `text`, as where its brackets open and where they close. A
+/// bracket without its partner opens no marker, so the scan steps past it and keeps looking.
+fn next_mark(text: &str) -> Option<(usize, usize)> {
+    let mut from = 0;
+    while let Some(found) = text[from..].find(['<', '[']) {
+        let open = from + found;
+        let closer = match text.as_bytes()[open] {
+            b'<' => '>',
+            _ => ']',
+        };
+        if let Some(shut) = text[open..].find(closer) {
+            return Some((open, open + shut));
+        }
+        from = open + 1;
+    }
+    None
 }
 
 #[cfg(test)]
@@ -1060,5 +1096,37 @@ mod tests {
         assert_eq!(stamp_of("00:1e30"), None);
         assert_eq!(stamp_of("18446744073709551615:00"), None);
         assert_eq!(parse("[00:1e30]lost\n[00:01.00]kept").len(), 1);
+    }
+
+    #[test]
+    fn reads_the_stamps_a_per_character_sheet_writes_between_its_characters() {
+        let lines = parse("[00:01.000]a[00:01.084]b[00:01.168]c[00:01.252]d[00:01.336]");
+
+        assert_eq!(lines[0].text, "abcd");
+        let words = lines[0].words.as_ref().expect("the line is worded");
+        assert_eq!(words.len(), 4);
+        assert_eq!(words[0].text, "a");
+        assert_eq!(words[0].start, Duration::from_secs(1));
+        assert_eq!(words[1].start, Duration::from_millis(1_084));
+        assert_eq!(words[3].text, "d");
+        assert_eq!(words[3].end, Duration::from_millis(1_336));
+    }
+
+    #[test]
+    fn a_bracket_that_holds_no_stamp_stays_in_the_text() {
+        let lines = parse("[00:01.00]hello [Chorus] and <3 more [world]\n[00:05.00]next");
+
+        assert_eq!(lines[0].text, "hello [Chorus] and <3 more [world]");
+        assert!(lines[0].words.is_none());
+    }
+
+    #[test]
+    fn an_unpaired_bracket_does_not_hide_the_stamps_after_it() {
+        let lines = parse("[00:01.00]a [half <00:02.00>b");
+
+        assert_eq!(lines[0].text, "a [half b");
+        let words = lines[0].words.as_ref().expect("the line is worded");
+        assert_eq!(words[0].start, Duration::from_secs(1));
+        assert_eq!(words[1].start, Duration::from_secs(2));
     }
 }

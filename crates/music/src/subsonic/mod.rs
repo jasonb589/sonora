@@ -1,5 +1,6 @@
 pub(crate) mod auth;
 mod client;
+mod lyrics;
 mod playback;
 mod wire;
 
@@ -9,6 +10,7 @@ use anyhow::{Context as _, Result};
 use async_trait::async_trait;
 
 pub use client::SubsonicClient;
+pub use lyrics::SubsonicLyrics;
 
 use crate::subsonic::playback::Factory;
 use crate::{Capabilities, MusicApi as _, MusicProvider, ProviderSession, Shape, SignIn};
