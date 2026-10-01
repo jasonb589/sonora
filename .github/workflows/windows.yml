@@ -92,7 +92,7 @@ jobs:
           path: dist/*
           if-no-files-found: error
           # The release keeps the installer; this copy is for the run page and expires
-          # sooner, because private repositories share a small storage allowance.
+          # sooner, so a run does not have to be the place anyone downloads it from.
           retention-days: 7
 
       # The run artifact above is the throwaway copy; the release asset is the link to hand out.
@@ -106,7 +106,7 @@ jobs:
           $tag = "windows-$env:VERSION"
           gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            $notes = "Windows x64 build of this private copy.`n`nThe installer needs no administrator rights. The build is unsigned, so SmartScreen asks for 'More info -> Run anyway' the first time.`n`nCovers from a Navidrome server are fetched as the server stores them, so the original artwork is shown."
+            $notes = "Windows x64 build of this Sonora fork.`n`nThe installer needs no administrator rights. The build is unsigned, so SmartScreen asks for 'More info -> Run anyway' the first time.`n`nCovers from a Navidrome server are fetched as the server stores them, so the original artwork is shown."
             gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:SHA --title "Windows build $env:VERSION (x64)" --notes $notes --prerelease
           }
           gh release upload $tag dist/* --clobber --repo $env:GITHUB_REPOSITORY
