@@ -56,6 +56,8 @@ pub struct Album {
     pub mbz_album_type: String,
     pub tags: Tags,
     pub participants: Participants,
+    pub image_hash: String,
+    pub large_image_url: String,
     pub created_at: String,
 }
 

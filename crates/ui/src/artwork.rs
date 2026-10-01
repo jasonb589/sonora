@@ -41,6 +41,14 @@ const SOFT_SIGMA: f32 = 1.6;
 const SMALL_BYTES: usize = 64 * 1024;
 const BIG_BYTES: usize = 256 * 1024;
 const MAX_PENDING: usize = 8;
+
+/// How many times a cover is asked for again when the network drops it part way: a flaky link
+/// closes a connection mid-body often enough that one more try turns a missing cover into a
+/// drawn one, and one that never arrives is asked for again by the sweep.
+const FETCH_ATTEMPTS: usize = 3;
+/// How long a cover that failed to arrive is left alone before the server is asked for it again.
+const RETRY_FAILED: Duration = Duration::from_secs(20);
+
 /// How long a condemned cover is held before it is dropped. One redraw of every window
 /// is all it takes for anything still on screen to ask for its cover again, and that
 /// redraw is already on its way when the batch is condemned.
@@ -81,18 +89,33 @@ impl Asset for ArtworkBytesLoader {
             let bytes = match resource {
                 Resource::Path(path) => std::fs::read(path.as_ref())?,
                 Resource::Uri(uri) => {
-                    let mut response = client.get(uri.as_ref(), ().into(), true).await?;
                     let mut body = Vec::new();
-                    response.body_mut().read_to_end(&mut body).await?;
-                    if !response.status().is_success() {
-                        let mut body = String::from_utf8_lossy(&body).into_owned();
-                        let first_line = body.lines().next().unwrap_or("").trim_end();
-                        body.truncate(first_line.len());
-                        return Err(ImageCacheError::BadStatus {
-                            uri,
-                            status: response.status(),
-                            body,
-                        });
+                    let mut attempt = 0;
+                    loop {
+                        attempt += 1;
+                        body.clear();
+                        let asked = async {
+                            let mut response = client.get(uri.as_ref(), ().into(), true).await?;
+                            response.body_mut().read_to_end(&mut body).await?;
+                            Ok::<_, ImageCacheError>(response.status())
+                        }
+                        .await;
+                        match asked {
+                            Ok(status) if status.is_success() => break,
+                            Ok(status) => {
+                                let text = String::from_utf8_lossy(&body);
+                                let first_line = text.lines().next().unwrap_or("").trim_end();
+                                return Err(ImageCacheError::BadStatus {
+                                    uri,
+                                    status,
+                                    body: first_line.to_owned(),
+                                });
+                            }
+                            Err(error) if attempt < FETCH_ATTEMPTS => {
+                                log::debug!("artwork: {uri} was dropped ({error}); asking again");
+                            }
+                            Err(error) => return Err(error),
+                        }
                     }
                     body
                 }
@@ -241,6 +264,8 @@ struct ArtworkCache {
     condemned_at: Option<Instant>,
     pending: HashMap<ArtworkKey, Instant>,
     soft: HashMap<(Resource, u32), Arc<RenderImage>>,
+    /// The covers that failed to arrive, and when, so the sweep asks the server for them again.
+    failed: HashMap<ArtworkKey, Instant>,
     /// The palette of every cover decoded this run, kept apart from the frames
     /// so an eviction never costs a button its colour.
     tints: HashMap<Resource, CoverPalette>,
@@ -261,6 +286,7 @@ impl ArtworkCache {
                 condemned_soft: Vec::new(),
                 condemned_at: None,
                 pending: HashMap::new(),
+                failed: HashMap::new(),
                 soft: HashMap::new(),
                 tints: HashMap::new(),
                 bytes: 0,
@@ -277,6 +303,14 @@ impl ArtworkCache {
         value: Result<Arc<RenderImage>, ImageCacheError>,
         cx: &mut App,
     ) {
+        match &value {
+            Ok(_) => {
+                self.failed.remove(&resource);
+            }
+            Err(_) => {
+                self.failed.insert(resource.clone(), Instant::now());
+            }
+        }
         let bytes = value.as_ref().map_or(0, |image| image_bytes(image));
         if let Ok(image) = &value
             && !self.tints.contains_key(&resource.0)
@@ -417,6 +451,22 @@ impl ArtworkCache {
     }
 
     fn sweep(&mut self, cx: &mut App) {
+        let retry: Vec<ArtworkKey> = self
+            .failed
+            .iter()
+            .filter(|(_, at)| at.elapsed() > RETRY_FAILED)
+            .map(|(key, _)| key.clone())
+            .collect();
+        for key in &retry {
+            self.failed.remove(key);
+            self.items.remove(key);
+            cx.remove_asset::<ArtworkResourceLoader>(&ArtworkSource {
+                resource: key.0.clone(),
+                edge: key.1,
+            });
+            self.release_bytes_if_unused(&key.0, cx);
+        }
+
         let held = self.items.len();
         let abandoned: Vec<ArtworkKey> = self
             .pending
