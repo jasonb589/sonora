@@ -89,6 +89,7 @@ fn main() {
             Arc::new(music::spotify::SpotifyProvider::from_env()),
             Arc::new(music::apple::AppleProvider::new()),
             Arc::new(music::youtube::YouTubeProvider::new()),
+            Arc::new(music::navidrome::NavidromeProvider::new()),
             Arc::new(music::subsonic::SubsonicProvider::new()),
             Arc::new(music::deezer::DeezerProvider::new()),
         ];
@@ -109,6 +110,7 @@ fn main() {
             Arc::new(music::lrclib::LrcLib::new()),
             Arc::new(music::kugou::Kugou::new()),
             Arc::new(music::netease::NetEase::new()),
+            Arc::new(music::navidrome::NavidromeLyrics::new()),
             Arc::new(music::subsonic::SubsonicLyrics::new()),
         ];
         state::init(cx, io, database, providers, local_provider, lyrics);
