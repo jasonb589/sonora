@@ -58,6 +58,16 @@ jobs:
         shell: pwsh
         run: choco install innosetup --yes --no-progress
 
+      # The wizard art and the language Setup settles on come from the compiler's own files, so
+      # report which compiler this is and that it carries the Chinese messages.
+      - name: report the compiler
+        shell: pwsh
+        run: |
+          $iscc = Get-Item "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          "ISCC $($iscc.VersionInfo.ProductVersion)"
+          Get-ChildItem (Join-Path $iscc.Directory "Languages") -Filter "Chinese*.isl" |
+            Select-Object -ExpandProperty Name
+
       - name: build the Windows installer
         shell: pwsh
         env:

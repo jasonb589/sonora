@@ -28,10 +28,32 @@ ArchitecturesInstallIn64BitMode={#Arch}
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=commandline dialog
 WizardStyle=modern
+; Both images are drawn at the size a 250% DPI display asks for, so Setup scales them down
+; rather than up and they stay sharp, and the small one is the app mark rather than the
+; built-in glyph Inno draws there.
+WizardSmallImageFile=..\..\assets\windows\wizard-small.png
+WizardImageFile=..\..\assets\windows\wizard-image.png
+ShowLanguageDialog=auto
 ChangesAssociations=yes
 
+; Setup picks the language of the user's Windows; the dialog only shows when the interface is in
+; neither of these. Inno ships the Chinese messages only from 7.1 and the compiler here is older,
+; so this repository carries the copy that Inno's own sources hold. Default.isl is listed first so
+; a message a later compiler adds still reads in English rather than stopping the build.
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+Name: "chinesesimplified"; MessagesFile: "compiler:Default.isl,ChineseSimplified.isl"
+
+[CustomMessages]
+english.CreateDesktopIcon=Create a desktop shortcut
+english.AdditionalShortcuts=Additional shortcuts:
+english.LaunchApp=Launch {#AppName}
+chinesesimplified.CreateDesktopIcon=创建桌面快捷方式
+chinesesimplified.AdditionalShortcuts=附加快捷方式：
+chinesesimplified.LaunchApp=启动 {#AppName}
+
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts:"
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalShortcuts}"
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "{#AppExeName}"; Flags: ignoreversion
@@ -50,7 +72,8 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 Root: HKA; Subkey: "Software\Sonora"; Flags: uninsdeletekeyifempty
 Root: HKA; Subkey: "Software\Sonora\Capabilities"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\Sonora\Capabilities"; ValueType: string; ValueName: "ApplicationName"; ValueData: "{#AppName}"; Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Sonora\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "A native music streaming client, built with Rust and GPUI"; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Sonora\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "A native music streaming client, built with Rust and GPUI"; Languages: english; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Sonora\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "使用 Rust 和 GPUI 构建的原生音乐串流客户端"; Languages: chinesesimplified; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Sonora\Capabilities"; ValueType: string; ValueName: "ApplicationIcon"; ValueData: "{app}\{#AppExeName},0"; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "{#AppName}"; ValueData: "Software\Sonora\Capabilities"; Flags: uninsdeletevalue
 Root: HKA; Subkey: "Software\Classes\Applications\{#AppExeName}"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "{#AppName}"; Flags: uninsdeletekey
@@ -196,7 +219,7 @@ Root: HKA; Subkey: "Software\Classes\SonoraSpotify\shell\open\command"; ValueTyp
 ; entries default to runasoriginaluser, the relaunch after a silent update does not, and an
 ; elevated Sonora is out of reach for tools like FancyZones that manage windows unelevated.
 [Run]
-Filename: "{app}\{#AppExeName}"; Description: "Launch {#AppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchApp}"; Flags: nowait postinstall skipifsilent
 Filename: "{app}\{#AppExeName}"; Flags: nowait runasoriginaluser; Check: RelaunchRequested
 
 [Code]
