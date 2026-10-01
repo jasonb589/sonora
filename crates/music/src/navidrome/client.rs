@@ -166,6 +166,19 @@ impl NavidromeClient {
         self.cover(&art)
     }
 
+    /// The picture of an album: the artwork the server holds when the files on it carry any, else
+    /// the url an outside service gave it, which is the order the server's own ui draws them in.
+    fn album_cover(&self, source: &wire::Album) -> Option<String> {
+        if !source.image_hash.is_empty() {
+            return self.cover(&format!("al-{}", source.id));
+        }
+        let url = source.large_image_url.trim();
+        match url.is_empty() {
+            true => None,
+            false => Some(url.to_owned()),
+        }
+    }
+
     /// The picture of an artist: the artwork the server holds when it has any, else the url an
     /// outside service gave it, which is the order the server's own ui draws them in.
     fn artist_cover(&self, source: &wire::Artist, id: &str) -> Option<String> {
@@ -194,7 +207,7 @@ impl NavidromeClient {
     }
 
     fn album_of(&self, source: wire::Album) -> Album {
-        let cover = self.cover(&format!("al-{}", source.id));
+        let cover = self.album_cover(&source);
         wire::album(source, cover.clone(), cover)
     }
 
