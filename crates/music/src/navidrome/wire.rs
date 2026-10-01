@@ -22,7 +22,6 @@ pub struct Song {
     pub track_number: u32,
     pub disc_number: u32,
     pub duration: f64,
-    pub year: i32,
     pub play_count: u64,
     pub created_at: String,
     /// The lyrics the file carries, as the server parsed them out of its own tags.
@@ -33,7 +32,6 @@ pub struct Song {
     pub genres: Vec<Named>,
     pub tags: Tags,
     pub participants: Participants,
-    pub starred: Option<bool>,
     /// What the file's own ReplayGain tags hold, which is all the server knows about how loud
     /// a track is.
     pub rg_track_gain: Option<f64>,
@@ -51,17 +49,14 @@ pub struct Album {
     pub album_artist: String,
     pub album_artist_id: String,
     pub max_year: i32,
-    pub min_year: i32,
     pub max_original_year: i32,
     pub date: String,
     pub compilation: bool,
     pub song_count: u32,
     pub mbz_album_type: String,
-    pub genres: Vec<Named>,
     pub tags: Tags,
     pub participants: Participants,
     pub created_at: String,
-    pub starred: Option<bool>,
 }
 
 /// An artist, as `/api/artist` hands one over. The list and the detail route carry the same
@@ -73,8 +68,6 @@ pub struct Artist {
     pub name: String,
     pub image_absent: bool,
     pub biography: String,
-    pub small_image_url: String,
-    pub medium_image_url: String,
     pub large_image_url: String,
     pub created_at: Option<String>,
 }
@@ -86,17 +79,16 @@ pub struct Artist {
 pub struct Playlist {
     pub id: String,
     pub name: String,
-    pub comment: String,
     pub owner_id: String,
     pub owner_name: String,
     pub public: bool,
     pub song_count: u32,
-    pub sync: bool,
     pub updated_at: Option<String>,
 }
 
 /// One row of a playlist: the song, under the id the playlist gives its own place in itself.
 #[derive(Clone, Debug, Default, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
 pub struct PlaylistEntry {
     pub media_file_id: String,
     #[serde(flatten)]
@@ -190,6 +182,8 @@ pub fn album(source: Album, cover: Option<String>, cover_large: Option<String>) 
         },
         false => source.date.clone(),
     };
+    let kind = release_type(&source);
+    let added_at = moment(Some(&source.created_at));
     models::Album {
         id: source.id,
         name: source.name,
@@ -197,14 +191,14 @@ pub fn album(source: Album, cover: Option<String>, cover_large: Option<String>) 
         artist_refs,
         cover,
         cover_large,
-        release_type: release_type(&source),
+        release_type: kind,
         year,
         track_count: source.song_count,
         release_date,
         // the native api keeps no record label and no copyright line
         label: String::new(),
         copyrights: Vec::new(),
-        added_at: moment(Some(&source.created_at)),
+        added_at,
     }
 }
 
@@ -615,12 +609,12 @@ mod tests {
         }))
         .expect("the server's own playlist shape");
 
-        let playlist = playlist(&source, None, "Drama");
-        assert!(playlist.owned);
-        assert_eq!(playlist.owner_id, "1ctciRcfouKiPJviQFMOD9");
-        assert_eq!(playlist.track_count, 12);
-        assert_eq!(playlist.modified_at, Some(1_790_869_183));
-        assert!(!playlist.public);
+        let list = playlist(&source, None, "Drama");
+        assert!(list.owned);
+        assert_eq!(list.owner_id, "1ctciRcfouKiPJviQFMOD9");
+        assert_eq!(list.track_count, 12);
+        assert_eq!(list.modified_at, Some(1_790_869_183));
+        assert!(!list.public);
         assert!(!playlist(&source, None, "someone else").owned);
     }
 
