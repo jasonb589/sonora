@@ -101,20 +101,20 @@ impl SubsonicClient {
             .await
     }
 
-    fn cover_url(&self, id: &str, size: i32) -> Option<String> {
-        Some(format!(
-            "{}&id={}&size={size}",
-            self.covers,
-            escape::component(id)
-        ))
+    /// The cover the server holds, at the size it was stored in: no `size` is asked for,
+    /// because a size makes the server hand back a scaled copy and navidrome serves the
+    /// original when it is left out. The ui scales whatever arrives down to the pixel edge
+    /// it paints, so the original is the only size that is never blurry.
+    fn cover_url(&self, id: &str) -> Option<String> {
+        Some(format!("{}&id={}", self.covers, escape::component(id)))
     }
 
     fn cover(&self, art: Option<&str>, fallback: &str) -> Option<String> {
-        self.cover_url(art.filter(|id| !id.is_empty()).unwrap_or(fallback), 300)
+        self.cover_url(art.filter(|id| !id.is_empty()).unwrap_or(fallback))
     }
 
     fn cover_large(&self, art: Option<&str>, fallback: &str) -> Option<String> {
-        self.cover_url(art.filter(|id| !id.is_empty()).unwrap_or(fallback), 600)
+        self.cover(art, fallback)
     }
 
     fn song(&self, song: Child) -> Track {
@@ -169,7 +169,7 @@ impl SubsonicClient {
         let cover = source
             .cover_art
             .as_deref()
-            .and_then(|id| self.cover_url(id, 300));
+            .and_then(|id| self.cover_url(id));
         wire::playlist(
             &source.id,
             &source.name,
@@ -730,7 +730,7 @@ impl MusicApi for SubsonicClient {
         let cover = detail
             .cover_art
             .as_deref()
-            .and_then(|id| self.cover_url(id, 300));
+            .and_then(|id| self.cover_url(id));
         let mut playlist = wire::playlist(
             &detail.id,
             &detail.name,
