@@ -212,7 +212,7 @@ AI-assisted proofreading and translation of human-written text are permitted.
 | Polski (`pl`) | 711/749 | 95% |
 | Čeština (`cs`) | 743/749 | 99% |
 | Português (Brasil) (`pt-BR`) | 605/749 | 81% |
-| 简体中文 (`zh-CN`) | 605/749 | 81% |
+| 简体中文 (`zh-CN`) | 749/749 | 100% |
 | Türkçe (`tr`) | 605/749 | 81% |
 | Shqip (`sq`) | 714/749 | 95% |
 
