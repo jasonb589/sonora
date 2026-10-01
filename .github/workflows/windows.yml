@@ -26,6 +26,8 @@ jobs:
   installer:
     name: x86_64-pc-windows-msvc
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v5
 
@@ -85,3 +87,19 @@ jobs:
           name: windows-installer
           path: dist/*
           if-no-files-found: error
+
+      # The artifact expires after ninety days; a release asset is the link to hand out.
+      - name: publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          SHA: ${{ github.sha }}
+        run: |
+          $tag = "windows-$env:VERSION"
+          gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null | Out-Null
+          if ($LASTEXITCODE -ne 0) {
+            $notes = "Windows x64 build of this private copy.`n`nThe installer needs no administrator rights. The build is unsigned, so SmartScreen asks for 'More info -> Run anyway' the first time.`n`nCovers from a Navidrome server are fetched as the server stores them, so the original artwork is shown."
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:SHA --title "Windows build $env:VERSION (x64)" --notes $notes --prerelease
+          }
+          gh release upload $tag dist/* --clobber --repo $env:GITHUB_REPOSITORY
