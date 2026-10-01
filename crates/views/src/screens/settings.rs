@@ -2885,6 +2885,7 @@ impl SettingsView {
             ("LrcLib", "settings-lyrics-provider-lrclib"),
             ("Kugou", "settings-lyrics-provider-kugou"),
             ("NetEase", "settings-lyrics-provider-netease"),
+            ("Subsonic", "settings-lyrics-provider-subsonic"),
         ];
         let count = providers
             .iter()
