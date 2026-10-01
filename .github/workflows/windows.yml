@@ -1,0 +1,87 @@
+name: windows
+
+# The release workflow builds every target and only publishes on a tag, and the check workflow
+# skips its build job on a pull request. This one is the short path: the Windows executable and
+# the Inno Setup installer that ships it, for a branch that wants a build without a tag.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version the installer reports
+        type: string
+        default: 0.42.0
+
+concurrency:
+  group: windows-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_PROFILE_RELEASE_STRIP: symbols
+  RUST_BACKTRACE: 1
+  RUSTC_WRAPPER: sccache
+  SCCACHE_GHA_ENABLED: "true"
+
+jobs:
+  installer:
+    name: x86_64-pc-windows-msvc
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: mozilla-actions/sccache-action@v0.0.9
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: x86_64-pc-windows-msvc
+          cache-targets: false
+          cache-on-failure: true
+
+      - name: build
+        run: cargo build --release --locked --package sonora --target x86_64-pc-windows-msvc
+
+      - name: sccache stats
+        if: always()
+        run: sccache --show-stats
+
+      # The installer carries this copy, and it is the one that can be run without installing.
+      - name: stage the executable
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          Copy-Item `
+            "target/x86_64-pc-windows-msvc/release/sonora.exe" `
+            "dist/sonora-$env:VERSION-x86_64-pc-windows-msvc.exe"
+
+      # The same steps the release workflow takes, for the one target it can take here.
+      - name: install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: build the Windows installer
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          # x64compatible for the x64 build, arm64 for the ARM one
+          SONORA_ARCH: x64compatible
+          # Sonora-Setup for the x64 build, Sonora-Setup-arm64 for the ARM one
+          SONORA_SETUP: Sonora-Setup
+        run: |
+          $number = $env:VERSION.TrimStart("v")
+          if ($number -notmatch '^\d+\.\d+\.\d+([.-][0-9A-Za-z.-]+)?$') {
+            $number = "0.0.0"
+          }
+          $env:SONORA_VERSION = $number
+          $env:SONORA_EXE = (Resolve-Path "target/x86_64-pc-windows-msvc/release/sonora.exe").Path
+          $env:SONORA_DIST = (Resolve-Path "dist").Path
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "scripts/windows/sonora.iss"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: dist/*
+          if-no-files-found: error
