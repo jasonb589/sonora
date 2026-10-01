@@ -1,15 +1,15 @@
 name: windows
-
 # The release workflow builds every target and only publishes on a tag, and the check workflow
 # skips its build job on a pull request. This one is the short path: the Windows executable and
-# the Inno Setup installer that ships it, for a branch that wants a build without a tag.
+# the Inno Setup installer that ships it, cut on demand for the version it is given, which becomes
+# the release's tag and title, with the commits since the last release written out as its notes.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version the installer reports
+        description: Version to publish, as a tag and a release title
         type: string
-        default: 0.42.0
+        required: true
 
 concurrency:
   group: windows-${{ github.ref }}
@@ -106,7 +106,9 @@ jobs:
           $tag = "windows-$env:VERSION"
           gh release view $tag --repo $env:GITHUB_REPOSITORY 2>$null | Out-Null
           if ($LASTEXITCODE -ne 0) {
-            $notes = "Windows x64 build of this Sonora fork.`n`nThe installer needs no administrator rights. The build is unsigned, so SmartScreen asks for 'More info -> Run anyway' the first time.`n`nCovers from a Navidrome server are fetched as the server stores them, so the original artwork is shown."
-            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:SHA --title "Windows build $env:VERSION (x64)" --notes $notes --prerelease
+            # The version is the title, and this paragraph is followed by what the commits since
+            # the last release say, so a build explains itself on the releases page.
+            $notes = "Windows x64 build of this Sonora fork: download the installer below. It needs no administrator rights. The build is unsigned, so SmartScreen asks for 'More info -> Run anyway' the first time."
+            gh release create $tag --repo $env:GITHUB_REPOSITORY --target $env:SHA --title $env:VERSION --notes $notes --generate-notes
           }
           gh release upload $tag dist/* --clobber --repo $env:GITHUB_REPOSITORY
