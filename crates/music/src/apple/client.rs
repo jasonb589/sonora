@@ -934,9 +934,9 @@ impl AppleClient {
         let answered = self.get(&self.catalog("/charts"), &query).await?;
         let mut sections = Vec::new();
         for (kind, title) in [
-            ("playlists", "Top playlists"),
-            ("albums", "Top albums"),
-            ("songs", "Top songs"),
+            ("playlists", "home-top-playlists"),
+            ("albums", "home-top-albums"),
+            ("songs", "home-top-songs"),
         ] {
             let items: Vec<GenreItem> = answered
                 .pointer(&format!("/results/{kind}"))
@@ -1703,7 +1703,7 @@ impl MusicApi for AppleClient {
             let title = group
                 .pointer("/attributes/title/stringForDisplay")
                 .and_then(Value::as_str)
-                .unwrap_or("For you")
+                .unwrap_or("home-for-you")
                 .to_owned();
             let items: Vec<GenreItem> = group
                 .pointer("/relationships/contents/data")

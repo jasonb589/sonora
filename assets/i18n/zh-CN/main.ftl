@@ -384,6 +384,13 @@ home-playlists = 播放列表
 home-favorite-albums = 收藏的专辑
 home-artists = 歌手
 home-collection-albums = 来自你收藏的专辑
+home-newest-albums = 最新专辑
+home-most-played-albums = 播放最多的专辑
+home-top-playlists = 热门歌单
+home-top-albums = 热门专辑
+home-top-songs = 热门单曲
+home-for-you = 为你推荐
+home-from-your-library = 来自你的音乐库
 
 # search page
 search-placeholder = 你想听什么？
