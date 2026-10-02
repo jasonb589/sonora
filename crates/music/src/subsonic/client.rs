@@ -843,13 +843,13 @@ impl MusicApi for SubsonicClient {
         let mut sections = Vec::new();
         if !newest.is_empty() {
             sections.push(GenreSection {
-                title: "Newest albums".to_owned(),
+                title: "home-newest-albums".to_owned(),
                 items: newest.into_iter().map(GenreItem::Album).collect(),
             });
         }
         if !frequent.is_empty() {
             sections.push(GenreSection {
-                title: "Most played albums".to_owned(),
+                title: "home-most-played-albums".to_owned(),
                 items: frequent.into_iter().map(GenreItem::Album).collect(),
             });
         }

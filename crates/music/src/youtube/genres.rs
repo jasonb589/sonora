@@ -143,7 +143,7 @@ fn stand_in(playlists: Vec<ytmusic::Playlist>, account: &str) -> Option<GenreSec
         .collect();
 
     (!items.is_empty()).then(|| GenreSection {
-        title: FROM_LIBRARY.to_owned(),
+        title: "home-from-your-library".to_owned(),
         items,
     })
 }

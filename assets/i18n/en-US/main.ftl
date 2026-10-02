@@ -381,6 +381,13 @@ home-playlists = Playlists
 home-favorite-albums = Favorite albums
 home-artists = Artists
 home-collection-albums = Albums from your collection
+home-newest-albums = Newest albums
+home-most-played-albums = Most played albums
+home-top-playlists = Top playlists
+home-top-albums = Top albums
+home-top-songs = Top songs
+home-for-you = For you
+home-from-your-library = From your library
 
 # search page
 search-placeholder = What do you want to listen to?
