@@ -4,8 +4,6 @@ name: ci
 # tests the workspace, instead of a linux check plus a macOS and a Windows lint, and no release
 # build runs here at all: the windows workflow cuts the installer on demand.
 on:
-  push:
-    branches: [dev]
   pull_request:
   workflow_dispatch:
 
