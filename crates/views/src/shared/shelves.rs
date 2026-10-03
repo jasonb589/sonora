@@ -223,19 +223,28 @@ impl Shelves {
                     .gap_4()
                     .h(head(window, cx))
                     .child(heading(i18n::translate(&section.title), cx))
-                    .when(crowded, |this| {
-                        this.child(self.arrows(place, &handle, &glide, me))
-                    })
-                    .when_some(self.refresh.clone(), |this, refresh| {
-                        this.child(
-                            Button::new(self.tag("refresh", place))
-                                .small()
-                                .outline()
-                                .icon("icons/refresh-cw.svg")
-                                .tooltip("home-refresh")
-                                .on_click(move |_, _, cx| refresh(cx)),
-                        )
-                    }),
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap_2()
+                            .when(crowded, |this| {
+                                this.child(self.arrows(place, &handle, &glide, me))
+                            })
+                            .when_some(
+                                self.refresh.clone().filter(|_| place == 0),
+                                |this, refresh| {
+                                    this.child(
+                                        Button::new(self.tag("refresh", place))
+                                            .small()
+                                            .outline()
+                                            .icon("icons/refresh-cw.svg")
+                                            .tooltip("home-refresh")
+                                            .on_click(move |_, _, cx| refresh(cx)),
+                                    )
+                                },
+                            ),
+                    ),
             )
             .child(
                 div()
