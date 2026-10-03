@@ -388,6 +388,7 @@ home-top-albums = Top albums
 home-top-songs = Top songs
 home-for-you = For you
 home-from-your-library = From your library
+home-refresh = Refresh
 
 # search page
 search-placeholder = What do you want to listen to?
