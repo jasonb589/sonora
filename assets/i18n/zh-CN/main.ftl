@@ -391,6 +391,7 @@ home-top-albums = 热门专辑
 home-top-songs = 热门单曲
 home-for-you = 为你推荐
 home-from-your-library = 来自你的音乐库
+home-refresh = 刷新
 
 # search page
 search-placeholder = 你想听什么？

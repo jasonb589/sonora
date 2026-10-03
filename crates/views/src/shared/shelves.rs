@@ -6,7 +6,7 @@ use gpui::{
 use std::rc::Rc;
 
 use music::{GenreItem, GenreSection};
-use state::Playback;
+use state::{Home, Playback};
 use ui::{ActiveTheme as _, Button, Card, Deck, Glide, Mode, Skeleton, Text, heading, snapped};
 
 use crate::shared::album_grid::CardGrid;
@@ -24,11 +24,16 @@ const HEADING_GAP: Pixels = px(12.);
 const LEADING: f32 = 1.4;
 const HEADING: Pixels = px(140.);
 
+/// The control that asks the page's source for its shelves again.
+type Refresh = Rc<dyn Fn(&mut App)>;
+
 pub(crate) struct Shelves {
     id: &'static str,
     host: EntityId,
     playback: Entity<Playback>,
     rails: Vec<(ScrollHandle, Glide)>,
+    /// Asks the page's source for its shelves again, drawn as a button beside the paging arrows.
+    refresh: Option<Refresh>,
 }
 
 impl Shelves {
@@ -38,7 +43,17 @@ impl Shelves {
             host,
             playback,
             rails: Vec::new(),
+            refresh: None,
         }
+    }
+
+    /// Adds the control that asks the page's source for its shelves again, drawn beside the
+    /// paging arrows.
+    pub(crate) fn refreshable(mut self, home: Entity<Home>) -> Self {
+        self.refresh = Some(Rc::new(move |cx: &mut App| {
+            home.update(cx, |home, cx| home.refresh(cx));
+        }));
+        self
     }
 
     fn tag(&self, kind: &str, place: usize) -> SharedString {
@@ -210,6 +225,16 @@ impl Shelves {
                     .child(heading(i18n::translate(&section.title), cx))
                     .when(crowded, |this| {
                         this.child(self.arrows(place, &handle, &glide, me))
+                    })
+                    .when_some(self.refresh.clone(), |this, refresh| {
+                        this.child(
+                            Button::new(self.tag("refresh", place))
+                                .small()
+                                .outline()
+                                .icon("icons/refresh-cw.svg")
+                                .tooltip("home-refresh")
+                                .on_click(move |_, _, cx| refresh(cx)),
+                        )
                     }),
             )
             .child(
