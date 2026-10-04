@@ -86,16 +86,8 @@ jobs:
           $env:SONORA_DIST = (Resolve-Path "dist").Path
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "scripts/windows/sonora.iss"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-installer
-          path: dist/*
-          if-no-files-found: error
-          # The release keeps the installer; this copy is for the run page and expires
-          # sooner, so a run does not have to be the place anyone downloads it from.
-          retention-days: 7
 
-      # The run artifact above is the throwaway copy; the release asset is the link to hand out.
+      # The release is the one place the installer is handed out from.
       - name: publish the release
         shell: pwsh
         env:
