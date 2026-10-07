@@ -25,7 +25,9 @@ impl Cover {
             .detach();
         cx.subscribe(&session, |this, _, event, cx| match event {
             SessionEvent::SignedOut => this.forget(cx),
-            SessionEvent::SignedIn | SessionEvent::Reconnected | SessionEvent::LocalChanged => {}
+            SessionEvent::SignedIn | SessionEvent::Reconnected | SessionEvent::LocalChanged => {
+                this.retry(cx)
+            }
         })
         .detach();
 
@@ -79,6 +81,20 @@ impl Cover {
         if self.large.is_some() {
             return;
         }
+        self.load(id, cx);
+    }
+
+    /// Tries the album's artwork again for a session that has just come back or a library that
+    /// has just been read again. The only attempt otherwise is the one made when the album
+    /// starts, and on a link that drops connections that is often the one that fails, which
+    /// leaves the player on the smaller cover of the track for the rest of the run.
+    fn retry(&mut self, cx: &mut Context<Self>) {
+        if self.task.is_some() || self.large.is_some() {
+            return;
+        }
+        let Some(id) = self.album.clone() else {
+            return;
+        };
         self.load(id, cx);
     }
 

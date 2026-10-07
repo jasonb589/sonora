@@ -43,7 +43,10 @@ const GRACE: Duration = Duration::from_secs(5);
 const KEEP_ITEMS: usize = 96;
 const IDLE: Duration = Duration::from_secs(120);
 const ORPHAN: Duration = Duration::from_secs(20);
-const SWEEP: Duration = Duration::from_secs(30);
+/// How often the cache measures itself, gives the covers that failed another try and drops what
+/// no window has asked for. It is short because the retry rides on it: a tile that stays blank
+/// for half a minute reads as artwork that is gone for good.
+const SWEEP: Duration = Duration::from_secs(10);
 /// How many softened covers are kept. Only the cover waiting on its large art is drawn
 /// soft, so two cover the current track and a skip back.
 const SOFT_ITEMS: usize = 2;
@@ -56,8 +59,14 @@ const MAX_PENDING: usize = 8;
 /// closes a connection mid-body often enough that one more try turns a missing cover into a
 /// drawn one, and one that never arrives is asked for again by the sweep.
 const FETCH_ATTEMPTS: usize = 3;
+/// How long one try at a cover waits before the next. A connection that answered with rubbish
+/// is replaced by the next attempt rather than repaired, and a server that was too busy for the
+/// first request is given a moment to come back.
+const RETRY_PAUSE: Duration = Duration::from_millis(250);
 /// How long a cover that failed to arrive is left alone before the server is asked for it again.
-const RETRY_FAILED: Duration = Duration::from_secs(20);
+/// A link that drops one cover usually drops the next few with it, so the wait is short: the
+/// artwork that comes back is worth more than the request it costs.
+const RETRY_FAILED: Duration = Duration::from_secs(8);
 
 /// How many covers decode at once. A decode holds the whole source image, so this bounds
 /// the transient memory, and running decodes on their own threads keeps those buffers in a
@@ -95,6 +104,7 @@ fn fetch(
 ) -> impl std::future::Future<Output = Result<Vec<u8>, ImageCacheError>> + Send + 'static {
     let client = cx.http_client();
     let asset_source = cx.asset_source().clone();
+    let executor = cx.background_executor().clone();
 
     async move {
         match resource {
@@ -111,22 +121,40 @@ fn fetch(
                         Ok::<_, ImageCacheError>(response.status())
                     }
                     .await;
-                    match asked {
-                        Ok(status) if status.is_success() => break,
-                        Ok(status) => {
-                            let text = String::from_utf8_lossy(&body);
-                            let first_line = text.lines().next().unwrap_or("").trim_end();
-                            return Err(ImageCacheError::BadStatus {
-                                uri,
-                                status,
-                                body: first_line.to_owned(),
-                            });
-                        }
-                        Err(error) if attempt < FETCH_ATTEMPTS => {
-                            log::debug!("artwork: {uri} was dropped ({error}); asking again");
-                        }
-                        Err(error) => return Err(error),
+
+                    if let Ok(status) = &asked
+                        && status.is_success()
+                    {
+                        break;
                     }
+                    // A connection the host dropped and a status it was too busy to answer with
+                    // say the same thing here: neither is an answer about whether the cover is
+                    // there, so both are worth asking again.
+                    let worth_asking = match &asked {
+                        Ok(status) => could_arrive_later(status.as_u16()),
+                        Err(_) => true,
+                    };
+                    let reason = match &asked {
+                        Ok(status) => status.to_string(),
+                        Err(error) => error.to_string(),
+                    };
+                    if !worth_asking || attempt >= FETCH_ATTEMPTS {
+                        log::debug!("artwork: {uri} is not coming after {attempt} ({reason})");
+                        return match asked {
+                            Ok(status) => {
+                                let text = String::from_utf8_lossy(&body);
+                                let first_line = text.lines().next().unwrap_or("").trim_end();
+                                Err(ImageCacheError::BadStatus {
+                                    uri,
+                                    status,
+                                    body: first_line.to_owned(),
+                                })
+                            }
+                            Err(error) => Err(error),
+                        };
+                    }
+                    log::debug!("artwork: {uri} was dropped ({reason}); asking again");
+                    executor.timer(RETRY_PAUSE).await;
                 }
                 Ok(body)
             }
@@ -140,6 +168,14 @@ fn fetch(
             }
         }
     }
+}
+
+/// Whether a status the server answered with could hold a cover another time. A server that is
+/// busy, restarting or asking to be waited for says so with one of these; a cover it does not
+/// have answers with the same 404 every time, and holding a tile open for that is not a retry
+/// but a request nobody is waiting for.
+fn could_arrive_later(status: u16) -> bool {
+    matches!(status, 408 | 425 | 429 | 500..=599)
 }
 
 /// A decoded cover with the palette sampled from it. The loader samples it on its own
@@ -553,6 +589,13 @@ impl ArtworkCache {
             });
         }
 
+        // A tile showing a cover that failed is drawn from the primitives its view recorded on the
+        // frame that failed, so it only ever asks again when a window is drawn again: dropping the
+        // failure alone leaves the blank tile in place until something unrelated repaints it.
+        if !retry.is_empty() || !abandoned.is_empty() {
+            cx.refresh_windows();
+        }
+
         let mut ages: Vec<(ArtworkKey, Instant, usize)> = self
             .items
             .iter()
@@ -774,6 +817,32 @@ pub fn cover_palette(url: &str, cx: &App) -> Option<CoverPalette> {
     let resource = resource(url.to_owned());
 
     installed.0.read(cx).tints.get(&resource).copied()
+}
+
+/// Asks for every cover that failed to arrive again, and draws every window so the tiles that were
+/// left blank go back to the server now rather than when the cache gets round to it. The controls
+/// that ask a page for its contents again go through here: a wall of missing artwork that only
+/// fills in on the cache's own clock reads as artwork that is gone for good.
+pub fn retry_failed(cx: &mut App) {
+    let Some(installed) = cx.try_global::<Installed>() else {
+        return;
+    };
+    let cache = installed.0.clone();
+
+    cache.update(cx, |cache, cx| {
+        let failed: Vec<ArtworkKey> = cache.failed.drain().map(|(key, _)| key).collect();
+        if failed.is_empty() {
+            return;
+        }
+        for key in &failed {
+            cache.items.remove(key);
+            cx.remove_asset::<ArtworkResourceLoader>(&ArtworkSource {
+                resource: key.0.clone(),
+                edge: key.1,
+            });
+        }
+        cx.refresh_windows();
+    });
 }
 
 /// The palette of the cover at `url` without keeping its pixels. A cover the cache has
@@ -1067,5 +1136,14 @@ mod tests {
         assert_eq!(frames[0].buffer().dimensions(), (64, 64));
         assert_eq!(frames[0].delay(), Delay::from_numer_denom_ms(80, 1));
         assert_eq!(frames[1].delay(), Delay::from_numer_denom_ms(120, 1));
+    }
+
+    #[test]
+    fn a_busy_server_is_asked_again_but_a_missing_cover_is_not() {
+        assert!(could_arrive_later(503));
+        assert!(could_arrive_later(429));
+        assert!(could_arrive_later(408));
+        assert!(!could_arrive_later(404));
+        assert!(!could_arrive_later(403));
     }
 }

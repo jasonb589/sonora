@@ -37,6 +37,11 @@ const API_VERSION: &str = "1.16.1";
 const CLIENT_NAME: &str = "sonora";
 /// The header the native api takes its bearer token in, and hands a stretched one back in.
 const AUTHORIZATION: &str = "X-Nd-Authorization";
+/// How many times a read the connection dropped is asked for again. A host that closes a
+/// connection under one request usually takes the next one, and album art or a listing that
+/// never arrives costs the screen far more than the second request does.
+const ASK_ATTEMPTS: usize = 3;
+
 /// Where the server says how long a listing is, which never rides in the body.
 const TOTAL_COUNT: &str = "x-total-count";
 
@@ -252,11 +257,34 @@ impl NavidromeClient {
             .with_context(|| format!("the navidrome server refused {path}"))
     }
 
-    /// One call over the wire, with the token in hand and the one the answer carries kept for
-    /// the next call.
+    /// A read that the connection dropped is asked for again: a host that closes a connection
+    /// under one request usually takes the next one, and a cover or a listing that never arrives
+    /// costs the screen far more than the second request does. A call that changes something is
+    /// never repeated, since one that failed may well have landed.
     async fn send(
         &self,
         method: reqwest::Method,
+        path: &str,
+        body: Option<&Value>,
+    ) -> Result<reqwest::Response> {
+        let mut attempt = 0;
+        loop {
+            attempt += 1;
+            match self.once(&method, path, body).await {
+                Ok(answer) => return Ok(answer),
+                Err(error) if method == reqwest::Method::GET && attempt < ASK_ATTEMPTS => {
+                    log::debug!("navidrome: {path} was dropped ({error:#}); asking again");
+                }
+                Err(error) => return Err(error),
+            }
+        }
+    }
+
+    /// One call over the wire, with the token in hand and the one the answer carries kept for
+    /// the next call.
+    async fn once(
+        &self,
+        method: &reqwest::Method,
         path: &str,
         body: Option<&Value>,
     ) -> Result<reqwest::Response> {
@@ -264,7 +292,7 @@ impl NavidromeClient {
         let mut asked = self
             .inner
             .http
-            .request(method, format!("{}{path}", self.inner.server))
+            .request(method.clone(), format!("{}{path}", self.inner.server))
             .header(AUTHORIZATION, format!("Bearer {jwt}"));
         if let Some(body) = body {
             asked = asked.json(body);

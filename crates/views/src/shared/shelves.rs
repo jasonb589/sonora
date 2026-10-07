@@ -51,6 +51,10 @@ impl Shelves {
     /// paging arrows.
     pub(crate) fn refreshable(mut self, home: Entity<Home>) -> Self {
         self.refresh = Some(Rc::new(move |cx: &mut App| {
+            // Artwork that failed to arrive is asked for again beside the shelves: a wall of
+            // missing covers is the first thing a page asking its source for everything again is
+            // expected to fix.
+            ui::retry_failed(cx);
             home.update(cx, |home, cx| home.refresh(cx));
         }));
         self
