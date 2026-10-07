@@ -150,6 +150,10 @@ impl Root {
         .detach();
 
         cx.subscribe(&Network::global(cx), |this, _, _: &Reconnected, cx| {
+            // Artwork that failed while the connection was down is asked for again along with
+            // everything else the screen reloads: the covers it stands for are what a reconnect is
+            // meant to bring back.
+            ui::retry_failed(cx);
             this.reload(cx)
         })
         .detach();

@@ -18,6 +18,14 @@ const USER_AGENT: &str = "sonora";
 const CACHE_BYTES: u64 = 128 * 1024 * 1024;
 const CACHE_AGE: Duration = Duration::from_secs(30 * 24 * 60 * 60);
 const CACHE_SWEEP: Duration = Duration::from_secs(60 * 60);
+/// How long a connection may take to come up. A cover asked for over a link that is not answering
+/// otherwise holds its place in the artwork cache for good, and every tile queued behind it stays
+/// blank until the client gives up on it.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+/// How long a transfer may stall between two reads. This cuts off a read that has stopped rather
+/// than a transfer that is slow: a cover of a few megabytes over a thin line takes as long as it
+/// takes and is worth waiting for, while a connection that has already died costs frames.
+const READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 static TEMP_FILE: AtomicU64 = AtomicU64::new(0);
 
@@ -48,6 +56,8 @@ impl Client {
         Self {
             inner: reqwest::Client::builder()
                 .user_agent(USER_AGENT)
+                .connect_timeout(CONNECT_TIMEOUT)
+                .read_timeout(READ_TIMEOUT)
                 .build()
                 .unwrap_or_default(),
             handle: handle.clone(),
