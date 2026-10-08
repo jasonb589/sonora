@@ -199,7 +199,9 @@ impl HttpClient for Client {
                 }
                 // A cover the server has moved or cannot answer for is better drawn from the
                 // cache than not drawn at all; asking for it afresh is the sweep's business.
-                if !status.is_success() && let Some((bytes, _)) = held.take() {
+                if !status.is_success()
+                    && let Some((bytes, _)) = held.take()
+                {
                     log::debug!("artwork: {uri} answered {status}; keeping what is stored");
                     return Ok::<_, anyhow::Error>((reqwest::StatusCode::OK, bytes.into()));
                 }
@@ -609,7 +611,10 @@ mod tests {
         cache.put("new", &new_image, &Stored::default());
 
         assert!(!old.exists());
-        assert_eq!(cache.fresh("new").map(|held| held.0), Some(new_image.to_vec()));
+        assert_eq!(
+            cache.fresh("new").map(|held| held.0),
+            Some(new_image.to_vec())
+        );
         assert!(cache.bytes.unwrap() <= 200);
     }
 
@@ -629,7 +634,10 @@ mod tests {
 
         assert_eq!(bytes, b"image".to_vec());
         assert_eq!(held.etag.as_deref(), Some("\"6814b7f7f2d28017\""));
-        assert_eq!(held.modified.as_deref(), Some("Thu, 08 Oct 2026 07:28:14 GMT"));
+        assert_eq!(
+            held.modified.as_deref(),
+            Some("Thu, 08 Oct 2026 07:28:14 GMT")
+        );
         assert!(held.revalidate);
         // Freshly fetched, so the window has not passed and the server is left alone.
         assert!(!held.due());
