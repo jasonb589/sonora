@@ -400,11 +400,7 @@ impl DiskCache {
                 }
                 let (bytes, stored) = decode(&raw);
                 let due = self.due(url, &stored);
-                Some(Held {
-                    bytes,
-                    stored,
-                    due,
-                })
+                Some(Held { bytes, stored, due })
             }
             Err(_) => {
                 self.remove(&path, metadata.len());
@@ -606,7 +602,9 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            cache.fresh("https://example.com/cover").map(|held| held.bytes),
+            cache
+                .fresh("https://example.com/cover")
+                .map(|held| held.bytes),
             Some(b"image".to_vec())
         );
         assert!(fs::metadata(path).unwrap().modified().unwrap() > old);
