@@ -138,3 +138,30 @@ Bullets are lowercase, imperative, one line each, and describe behaviour rather 
 `## [Unreleased]` as features land, under `Added`, `Changed` or `Fixed`. Entries say what someone
 using Sonora can now do, in one or two short sentences, since the notes are posted to Discord.
 Leave out work no user can observe. Cutting a release is the `release-sonora` skill.
+
+## This copy (`jasonb589/sonora`)
+
+This checkout is a fork maintained without a Rust toolchain: nothing here is built or tested
+locally, and every check runs on GitHub Actions.
+
+- **Code changes land through a PR with a green `ci` run** (fmt, clippy `-D warnings`,
+  `cargo test --workspace --locked`, all on `windows-latest`). Write code in rustfmt's style by
+  hand: `max_width` 100, comments are not reflowed, and a let-chain breaks before `&&`. A
+  docs-only change may be pushed straight to `main`, which runs no workflow.
+- **Releases.** `gh workflow run windows.yml -R jasonb589/sonora --ref main -f version=X`. The
+  tag is `windows-X` (upstream's `v*` tags are never fetched, so they cannot collide), the title
+  is that same version, and the notes put a hand-written "What's new" above the workflow's
+  auto-generated "What's Changed". The installer is handed out from the release alone.
+- **Translations.** `zh-CN` is kept at every key `en-US` has, and new keys are translated in the
+  same change. `scripts/i18n-coverage.py` needs Python this machine does not have, so the
+  README's table is regenerated with the PowerShell port of it.
+- **Upstream syncs use a merge commit, never a squash.** Squashing throws upstream's parents
+  away, so the next sync replays every upstream commit since the last *shared* commit instead of
+  the delta — the 0.42.2 sync paid for 0.42.1 a second time for exactly this reason. Merge
+  `upstream/main` into `sync/upstream-X.Y.Z` and merge that branch into `main` with `--merge`.
+- **Resolving a sync conflict:** ask which side changed the file since the last synced upstream
+  commit, with `git diff <that commit> main -- <file>` against
+  `git diff <that commit> upstream/main -- <file>`. One side changed it → take that side. Both
+  changed it → merge by hand. `README.md`'s translation table is regenerated rather than merged.
+  Afterwards check that the dead workflows this copy removed did not come back, that
+  `Cargo.toml` and `Cargo.lock` are consistent, and that `zh-CN` covers the new keys.
