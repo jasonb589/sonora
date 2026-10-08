@@ -4,7 +4,6 @@
 
 <h1>Sonora</h1>
 
-
 <p align="center">
   <a href="https://sonorahq.org/changelog">Changelog</a>
   ·
@@ -61,13 +60,13 @@ Stream from your favorite services and play local files — all in one **native*
 
 ## Features
 
-* **Apple Music, Spotify, YouTube Music, Deezer, Subsonic/Navidrome** and local playback
-* Gapless playback, audio normalization, shuffle, sleep timer
-* Synced/karaoke lyrics, background vocals, and romanization
-* Scrobbling with LastFM, ListenBrainz, LibreFM, and Maloja
-* Themes, fonts, icons, transparency, blur, and window styling
-* Discord Rich Presence, native file opening
-* macOS, Windows, Linux, and (probably) FreeBSD support
+- **Apple Music, Spotify, YouTube Music, Deezer, Subsonic/Navidrome** and local playback
+- Gapless playback, audio normalization, shuffle, sleep timer
+- Synced/karaoke lyrics, background vocals, and romanization
+- Scrobbling with LastFM, ListenBrainz, LibreFM, and Maloja
+- Themes, fonts, icons, transparency, blur, and window styling
+- Discord Rich Presence, native file opening
+- macOS, Windows, Linux, and (probably) FreeBSD support
 
 ## Installation
 
@@ -200,21 +199,21 @@ AI-assisted proofreading and translation of human-written text are permitted.
 
 | Language | Translated | Coverage |
 | --- | --- | --- |
-| English (`en-US`) | 762/762 | 100% |
-| Deutsch (`de`) | 628/762 | 82% |
-| Español (`es`) | 690/762 | 91% |
-| Français (`fr`) | 749/762 | 98% |
-| Italiano (`it`) | 605/762 | 79% |
-| Bahasa Indonesia (`id`) | 605/762 | 79% |
-| 日本語 (`ja`) | 605/762 | 79% |
-| Русский (`ru`) | 711/762 | 93% |
-| Українська (`uk`) | 711/762 | 93% |
-| Polski (`pl`) | 711/762 | 93% |
-| Čeština (`cs`) | 743/762 | 98% |
-| Português (Brasil) (`pt-BR`) | 605/762 | 79% |
-| 简体中文 (`zh-CN`) | 762/762 | 100% |
-| Türkçe (`tr`) | 605/762 | 79% |
-| Shqip (`sq`) | 714/762 | 94% |
+| English (`en-US`) | 765/765 | 100% |
+| Deutsch (`de`) | 628/765 | 82% |
+| Español (`es`) | 690/765 | 90% |
+| Français (`fr`) | 749/765 | 98% |
+| Italiano (`it`) | 605/765 | 79% |
+| Bahasa Indonesia (`id`) | 605/765 | 79% |
+| 日本語 (`ja`) | 605/765 | 79% |
+| Русский (`ru`) | 711/765 | 93% |
+| Українська (`uk`) | 711/765 | 93% |
+| Polski (`pl`) | 711/765 | 93% |
+| Čeština (`cs`) | 743/765 | 97% |
+| Português (Brasil) (`pt-BR`) | 605/765 | 79% |
+| 简体中文 (`zh-CN`) | 765/765 | 100% |
+| Türkçe (`tr`) | 605/765 | 79% |
+| Shqip (`sq`) | 714/765 | 93% |
 
 <!-- i18n:end -->
 
@@ -237,6 +236,7 @@ Sonora is built with the help of some incredible open-source projects, including
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) — certain YouTube ideas implemented in [ytmusic-rs](https://github.com/sonorahq/ytmusic-rs) :)
 
 ## Code signing
+
 Sonora has applied for code signing through SignPath Foundation. Current releases are not yet signed through SignPath Foundation. If approved, signed releases will use free code signing provided by SignPath.io, with a certificate by SignPath Foundation.
 
 ## License
