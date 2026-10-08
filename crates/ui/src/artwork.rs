@@ -820,22 +820,58 @@ pub fn cover_palette(url: &str, cx: &App) -> Option<CoverPalette> {
 }
 
 /// Asks for every cover that failed to arrive again, and draws every window so the tiles that were
-/// left blank go back to the server now rather than when the cache gets round to it. The controls
-/// that ask a page for its contents again go through here: a wall of missing artwork that only
-/// fills in on the cache's own clock reads as artwork that is gone for good.
+/// left blank go back to the server now rather than when the cache gets round to it. This is what
+/// a reconnect goes through: those tiles are blank already, so asking again costs nothing but the
+/// requests.
 pub fn retry_failed(cx: &mut App) {
+    ask_again(cx, false);
+}
+
+/// Asks for every cover again, the ones already drawn included. This is what a page asking its
+/// source for everything again goes through: the covers that failed while the connection was down
+/// and the ones the server has replaced behind the cache since they were drawn, which the image
+/// cache's own revalidation turns into a handful of requests answered `not modified`. Dropping a
+/// cover that is on screen leaves its tile to be drawn again a moment later, so it belongs to a
+/// control the user asked for and not to a reconnect happening underneath them.
+pub fn reload_artwork(cx: &mut App) {
+    ask_again(cx, true);
+}
+
+/// Asks for every cover the cache has, or for the ones that failed when `everything` is false,
+/// and draws every window: a tile is otherwise painted from the primitives its view recorded on
+/// the frame before, which is what kept a dropped cover or a replaced one on screen.
+fn ask_again(cx: &mut App, everything: bool) {
     let Some(installed) = cx.try_global::<Installed>() else {
         return;
     };
     let cache = installed.0.clone();
 
     cache.update(cx, |cache, cx| {
-        let failed: Vec<ArtworkKey> = cache.failed.drain().map(|(key, _)| key).collect();
-        if failed.is_empty() {
+        let mut asked: Vec<ArtworkKey> = cache.failed.drain().map(|(key, _)| key).collect();
+        if everything {
+            asked.extend(cache.items.keys().cloned());
+            asked.extend(cache.condemned.keys().cloned());
+            for image in std::mem::take(&mut cache.soft).into_values() {
+                cx.drop_image(image, None);
+            }
+        }
+        if asked.is_empty() {
             return;
         }
-        for key in &failed {
-            cache.items.remove(key);
+        // A cover already drawn is dropped rather than condemned: condemning one leaves it to be
+        // taken back by the next ask, which is exactly the ask that has to go out.
+        for key in &asked {
+            if let Some(cached) = cache.items.remove(key) {
+                cache.bytes = cache.bytes.saturating_sub(cached.bytes);
+                if let Ok(image) = cached.value {
+                    cx.drop_image(image, None);
+                }
+            }
+            if let Some(cached) = cache.condemned.remove(key)
+                && let Ok(image) = cached.value
+            {
+                cx.drop_image(image, None);
+            }
             cx.remove_asset::<ArtworkResourceLoader>(&ArtworkSource {
                 resource: key.0.clone(),
                 edge: key.1,
