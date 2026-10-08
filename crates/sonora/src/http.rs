@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::{self, FileTimes, OpenOptions};
 use std::future::Future;
 use std::io::Read as _;
@@ -40,6 +41,9 @@ const RECHECK_AFTER: Duration = Duration::from_secs(60);
 /// there is something to fall back on: a cover the server cannot be reached for is worth more
 /// than a blank tile.
 const RECHECK_TIMEOUT: Duration = Duration::from_secs(4);
+/// How many covers one run remembers having checked with the server. The map only saves the
+/// requests a second look at a cover would make, so it is emptied whole rather than trimmed.
+const CHECKED_ITEMS: usize = 4096;
 
 static TEMP_FILE: AtomicU64 = AtomicU64::new(0);
 
@@ -124,19 +128,20 @@ impl HttpClient for Client {
                     }
                     _ => None,
                 };
-                let rechecking = held.as_ref().is_some_and(|(_, stored)| stored.due());
+                let rechecking = held.as_ref().is_some_and(|held| held.due);
 
-                if !rechecking && let Some((bytes, _)) = held.take() {
+                if !rechecking && let Some(held) = held.take() {
+                    let bytes = held.bytes;
                     return Ok::<_, anyhow::Error>((reqwest::StatusCode::OK, bytes.into()));
                 }
 
                 let mut outgoing = client.request(parts.method, &uri).headers(parts.headers);
 
-                if let Some((_, stored)) = &held {
-                    if let Some(etag) = &stored.etag {
+                if let Some(held) = &held {
+                    if let Some(etag) = &held.stored.etag {
                         outgoing = outgoing.header(IF_NONE_MATCH, etag.as_str());
                     }
-                    if let Some(modified) = &stored.modified {
+                    if let Some(modified) = &held.stored.modified {
                         outgoing = outgoing.header(IF_MODIFIED_SINCE, modified.as_str());
                     }
                     // The check is worth only a moment: the bytes it stands for are in hand.
@@ -149,10 +154,11 @@ impl HttpClient for Client {
                 let incoming = match outgoing.send().await {
                     Ok(incoming) => incoming,
                     Err(error) => {
-                        let Some((bytes, _)) = held.take() else {
+                        let Some(held) = held.take() else {
                             return Err(error.into());
                         };
                         log::debug!("artwork: {uri} was not rechecked ({error}); keeping it");
+                        let bytes = held.bytes;
                         return Ok::<_, anyhow::Error>((reqwest::StatusCode::OK, bytes.into()));
                     }
                 };
@@ -178,31 +184,28 @@ impl HttpClient for Client {
                 let bytes = incoming.bytes().await?;
 
                 if status == reqwest::StatusCode::NOT_MODIFIED
-                    && let Some((bytes, held)) = held.take()
+                    && let Some(held) = held.take()
                 {
                     // The server still stands behind what it gave, so the stored bytes are good
-                    // for another window and no body came over the wire to replace them with. A
-                    // 304 that repeats neither validator keeps the ones already held.
+                    // for as long as this run remembers the check: no body came over the wire to
+                    // replace them, and nothing is written to disk to say they were checked.
                     if cacheable && let Some(cache) = cache.as_ref() {
                         let cache = cache.clone();
-                        let stored = Stored {
-                            etag: etag.or(held.etag),
-                            modified: modified.or(held.modified),
-                            fetched: SystemTime::now(),
-                            revalidate: revalidate || held.revalidate,
-                        };
+                        let url = uri.clone();
                         drop(tokio::task::spawn_blocking(move || {
-                            with_cache(&cache, |cache| cache.put(&uri, &bytes, &stored));
+                            with_cache(&cache, |cache| cache.checked(&url));
                         }));
                     }
+                    let bytes = held.bytes;
                     return Ok::<_, anyhow::Error>((reqwest::StatusCode::OK, bytes.into()));
                 }
                 // A cover the server has moved or cannot answer for is better drawn from the
                 // cache than not drawn at all; asking for it afresh is the sweep's business.
                 if !status.is_success()
-                    && let Some((bytes, _)) = held.take()
+                    && let Some(held) = held.take()
                 {
                     log::debug!("artwork: {uri} answered {status}; keeping what is stored");
+                    let bytes = held.bytes;
                     return Ok::<_, anyhow::Error>((reqwest::StatusCode::OK, bytes.into()));
                 }
                 if cacheable
@@ -260,12 +263,12 @@ struct Stored {
     revalidate: bool,
 }
 
-impl Stored {
-    /// Whether the bytes should be checked with the server before they are used again: the
-    /// server asked for that, and they have been held past the freshness window.
-    fn due(&self) -> bool {
-        self.revalidate && self.fetched.elapsed().is_ok_and(|age| age >= RECHECK_AFTER)
-    }
+/// What the cache has for a url: the bytes, what is known about them, and whether the server asked
+/// to be told about them again before they are used.
+struct Held {
+    bytes: Vec<u8>,
+    stored: Stored,
+    due: bool,
 }
 
 impl Default for Stored {
@@ -357,6 +360,10 @@ struct DiskCache {
     max_age: Duration,
     bytes: Option<u64>,
     swept: Instant,
+    /// When a cover was last checked with the server and found unchanged, by url. A check that
+    /// came back `not modified` is held here rather than written into the entry, so nothing is
+    /// rewritten on disk to say so and a cover scrolled past twice in one run is checked once.
+    checked: HashMap<String, Instant>,
 }
 
 impl DiskCache {
@@ -368,12 +375,14 @@ impl DiskCache {
             max_age,
             bytes: None,
             swept: Instant::now(),
+            checked: HashMap::new(),
         })
     }
 
-    /// The bytes of `url` with what is known about them, refreshing the entry's place in the
-    /// cache's own order and dropping one that has been held past its age.
-    fn fresh(&mut self, url: &str) -> Option<(Vec<u8>, Stored)> {
+    /// What the cache has for `url`: the bytes, what is known about them and whether they are due
+    /// to be checked with the server. Refreshes the entry's place in the cache's own order and
+    /// drops one that has been held past its age.
+    fn fresh(&mut self, url: &str) -> Option<Held> {
         let path = self.path(url);
         let metadata = fs::metadata(&path).ok()?;
         let used = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
@@ -389,13 +398,39 @@ impl DiskCache {
                     file.set_times(FileTimes::new().set_accessed(now).set_modified(now))
                         .ok();
                 }
-                Some(decode(&raw))
+                let (bytes, stored) = decode(&raw);
+                let due = self.due(url, &stored);
+                Some(Held {
+                    bytes,
+                    stored,
+                    due,
+                })
             }
             Err(_) => {
                 self.remove(&path, metadata.len());
                 None
             }
         }
+    }
+
+    /// Whether an entry is due to be checked with the server: the server asked to be told about
+    /// every reuse, and this one has been held past the window since it arrived or was last
+    /// checked.
+    fn due(&self, url: &str, stored: &Stored) -> bool {
+        if !stored.revalidate {
+            return false;
+        }
+        let since = self.checked.get(url).copied().unwrap_or(stored.fetched);
+        since.elapsed().is_ok_and(|age| age >= RECHECK_AFTER)
+    }
+
+    /// Records that the server was asked about an entry and still stands behind it. Only this run
+    /// remembers it: the next one checks the cover again, which is what the server asked for.
+    fn checked(&mut self, url: &str) {
+        if self.checked.len() >= CHECKED_ITEMS {
+            self.checked.clear();
+        }
+        self.checked.insert(url.to_owned(), Instant::now());
     }
 
     fn put(&mut self, url: &str, bytes: &[u8], stored: &Stored) {
@@ -571,7 +606,7 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            cache.fresh("https://example.com/cover").map(|held| held.0),
+            cache.fresh("https://example.com/cover").map(|held| held.bytes),
             Some(b"image".to_vec())
         );
         assert!(fs::metadata(path).unwrap().modified().unwrap() > old);
@@ -612,7 +647,7 @@ mod tests {
 
         assert!(!old.exists());
         assert_eq!(
-            cache.fresh("new").map(|held| held.0),
+            cache.fresh("new").map(|held| held.bytes),
             Some(new_image.to_vec())
         );
         assert!(cache.bytes.unwrap() <= 200);
@@ -630,17 +665,17 @@ mod tests {
         };
         cache.put("https://example.com/cover", b"image", &stored);
 
-        let (bytes, held) = cache.fresh("https://example.com/cover").unwrap();
+        let held = cache.fresh("https://example.com/cover").unwrap();
 
-        assert_eq!(bytes, b"image".to_vec());
-        assert_eq!(held.etag.as_deref(), Some("\"6814b7f7f2d28017\""));
+        assert_eq!(held.bytes, b"image".to_vec());
+        assert_eq!(held.stored.etag.as_deref(), Some("\"6814b7f7f2d28017\""));
         assert_eq!(
-            held.modified.as_deref(),
+            held.stored.modified.as_deref(),
             Some("Thu, 08 Oct 2026 07:28:14 GMT")
         );
-        assert!(held.revalidate);
+        assert!(held.stored.revalidate);
         // Freshly fetched, so the window has not passed and the server is left alone.
-        assert!(!held.due());
+        assert!(!held.due);
     }
 
     #[test]
@@ -650,26 +685,50 @@ mod tests {
         let path = cache.path("https://example.com/cover");
         fs::write(&path, b"image").unwrap();
 
-        let (bytes, held) = cache.fresh("https://example.com/cover").unwrap();
+        let held = cache.fresh("https://example.com/cover").unwrap();
 
-        assert_eq!(bytes, b"image".to_vec());
-        assert!(held.etag.is_none());
-        assert!(!held.revalidate);
+        assert_eq!(held.bytes, b"image".to_vec());
+        assert!(held.stored.etag.is_none());
+        assert!(!held.stored.revalidate);
+        // Nothing is known about it, so it is never checked with the server.
+        assert!(!held.due);
     }
 
     #[test]
     fn a_server_that_asks_for_a_recheck_is_asked_once_the_window_passes() {
-        let held = Stored {
+        let root = Temporary::new();
+        let cache = DiskCache::new(root.0.clone(), 4096, Duration::from_secs(60)).unwrap();
+        let url = "https://example.com/cover";
+        let old = SystemTime::now() - Duration::from_secs(2 * RECHECK_AFTER.as_secs());
+
+        let asked = Stored {
+            revalidate: true,
+            fetched: old,
+            ..Stored::default()
+        };
+        assert!(cache.due(url, &asked));
+
+        let kept = Stored {
+            revalidate: false,
+            ..asked
+        };
+        assert!(!cache.due(url, &kept));
+    }
+
+    #[test]
+    fn a_cover_checked_this_run_is_not_checked_again() {
+        let root = Temporary::new();
+        let mut cache = DiskCache::new(root.0.clone(), 4096, Duration::from_secs(60)).unwrap();
+        let url = "https://example.com/cover";
+        let stored = Stored {
             revalidate: true,
             fetched: SystemTime::now() - Duration::from_secs(2 * RECHECK_AFTER.as_secs()),
             ..Stored::default()
         };
-        assert!(held.due());
+        assert!(cache.due(url, &stored));
 
-        let kept = Stored {
-            fetched: SystemTime::now() - Duration::from_secs(2 * RECHECK_AFTER.as_secs()),
-            ..held
-        };
-        assert!(!kept.due());
+        cache.checked(url);
+
+        assert!(!cache.due(url, &stored));
     }
 }
