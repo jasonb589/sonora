@@ -191,9 +191,8 @@ impl HttpClient for Client {
                     // replace them, and nothing is written to disk to say they were checked.
                     if cacheable && let Some(cache) = cache.as_ref() {
                         let cache = cache.clone();
-                        let url = uri.clone();
                         drop(tokio::task::spawn_blocking(move || {
-                            with_cache(&cache, |cache| cache.checked(&url));
+                            with_cache(&cache, |cache| cache.checked(&uri));
                         }));
                     }
                     let bytes = held.bytes;
@@ -363,7 +362,7 @@ struct DiskCache {
     /// When a cover was last checked with the server and found unchanged, by url. A check that
     /// came back `not modified` is held here rather than written into the entry, so nothing is
     /// rewritten on disk to say so and a cover scrolled past twice in one run is checked once.
-    checked: HashMap<String, Instant>,
+    checked: HashMap<String, SystemTime>,
 }
 
 impl DiskCache {
@@ -426,7 +425,7 @@ impl DiskCache {
         if self.checked.len() >= CHECKED_ITEMS {
             self.checked.clear();
         }
-        self.checked.insert(url.to_owned(), Instant::now());
+        self.checked.insert(url.to_owned(), SystemTime::now());
     }
 
     fn put(&mut self, url: &str, bytes: &[u8], stored: &Stored) {
