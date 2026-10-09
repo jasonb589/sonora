@@ -1649,14 +1649,14 @@ impl SettingsView {
                         _ => Skeleton::new().w(px(140.)).h(px(14.)).into_any_element(),
                     })
                     .child(match self.session.read(cx).state() {
-                        SessionState::SignedIn(profile) => div()
+                        // The id the server keeps for an account is not something a reader of this
+                        // card has any use for, so the line names the service and stops there.
+                        SessionState::SignedIn(_) => div()
                             .child(match &provider {
-                                Some(provider) => t!(
-                                    "settings-profile-account",
-                                    provider = provider,
-                                    account = &profile.id
-                                ),
-                                None => profile.id.clone().into(),
+                                Some(provider) => {
+                                    t!("settings-profile-account", provider = provider)
+                                }
+                                None => SharedString::default(),
                             })
                             .text_color(muted)
                             .text_size(theme.text(Text::Small))
