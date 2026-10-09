@@ -67,6 +67,11 @@ const RETRY_PAUSE: Duration = Duration::from_millis(250);
 /// A link that drops one cover usually drops the next few with it, so the wait is short: the
 /// artwork that comes back is worth more than the request it costs.
 const RETRY_FAILED: Duration = Duration::from_secs(8);
+/// How many times a cover that failed is asked for again before the cache leaves it alone. A
+/// server that has not resolved a cover yet answers with a stand-in of its own, and asking is
+/// what sets it going, so a handful of asks spread over a minute are all it is worth: a cover
+/// that is simply not there answers the same way every time.
+const RETRY_TRIES: u32 = 8;
 
 /// How many covers decode at once. A decode holds the whole source image, so this bounds
 /// the transient memory, and running decodes on their own threads keeps those buffers in a
@@ -355,6 +360,20 @@ fn bgra(image: &mut RgbaImage) {
     }
 }
 
+/// A cover the cache asked for and did not get, with how many times it has asked.
+struct Tried {
+    at: Instant,
+    tries: u32,
+}
+
+impl Tried {
+    /// Whether the cover should be asked for again. A cover that is simply not there answers the
+    /// same way every time, so the tries `RETRY_TRIES` allows are all it is worth.
+    fn due(&self) -> bool {
+        self.tries < RETRY_TRIES && self.at.elapsed() > RETRY_FAILED
+    }
+}
+
 struct Cached {
     value: Result<Arc<RenderImage>, ImageCacheError>,
     bytes: usize,
@@ -370,8 +389,9 @@ struct ArtworkCache {
     condemned_at: Option<Instant>,
     pending: HashMap<ArtworkKey, Instant>,
     soft: HashMap<(Resource, u32), Arc<RenderImage>>,
-    /// The covers that failed to arrive, and when, so the sweep asks the server for them again.
-    failed: HashMap<ArtworkKey, Instant>,
+    /// The covers that failed to arrive, with how many times each has been asked for, so the sweep
+    /// asks the server again a few times and then leaves them alone.
+    failed: HashMap<ArtworkKey, Tried>,
     /// The palette of every cover decoded this run, kept apart from the frames
     /// so an eviction never costs a button its colour.
     tints: HashMap<Resource, CoverPalette>,
@@ -417,7 +437,9 @@ impl ArtworkCache {
                 self.failed.remove(&resource);
             }
             Err(_) => {
-                self.failed.insert(resource.clone(), Instant::now());
+                let tries = self.failed.get(&resource).map_or(0, |tried| tried.tries) + 1;
+                let at = Instant::now();
+                self.failed.insert(resource.clone(), Tried { at, tries });
             }
         }
         if let Ok(decoded) = &decoded
@@ -561,11 +583,10 @@ impl ArtworkCache {
         let retry: Vec<ArtworkKey> = self
             .failed
             .iter()
-            .filter(|(_, at)| at.elapsed() > RETRY_FAILED)
+            .filter(|(_, tried)| tried.due())
             .map(|(key, _)| key.clone())
             .collect();
         for key in &retry {
-            self.failed.remove(key);
             self.items.remove(key);
             cx.remove_asset::<ArtworkResourceLoader>(&ArtworkSource {
                 resource: key.0.clone(),
@@ -1181,5 +1202,25 @@ mod tests {
         assert!(could_arrive_later(408));
         assert!(!could_arrive_later(404));
         assert!(!could_arrive_later(403));
+    }
+
+    #[test]
+    fn a_cover_that_failed_is_asked_for_again_a_few_times_and_then_left_alone() {
+        let old = Instant::now() - Duration::from_secs(2 * RETRY_FAILED.as_secs());
+        let just_failed = Tried {
+            at: Instant::now(),
+            tries: 1,
+        };
+        let due = Tried { at: old, tries: 1 };
+        let spent = Tried {
+            at: old,
+            tries: RETRY_TRIES,
+        };
+
+        // Nothing is asked for again on the frame it failed, a stale failure is asked for again, and a
+        // failure that has been asked for as many times as it is worth is left where it is.
+        assert!(!just_failed.due());
+        assert!(due.due());
+        assert!(!spent.due());
     }
 }
