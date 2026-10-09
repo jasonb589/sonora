@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use anyhow::{Context as _, Result};
 use gpui::{App, AppContext as _, Context, Entity, Global, Task};
 use music::Track;
+use reqwest::header::{CACHE_CONTROL, ETAG, LAST_MODIFIED};
 use tokio::sync::mpsc;
 
 use crate::{Cover, Io, Playback, PlaybackState, Queue, Repeat, Sonora, join};
@@ -267,7 +268,8 @@ fn is_remote(cover: &str) -> bool {
 }
 
 /// The cached file for a cover url, downloaded on first sight. The bytes have to decode as an
-/// image before they are kept, so the widget never opens something it cannot draw.
+/// image before they are kept, so the widget never opens something it cannot draw, and a
+/// stand-in for art the server has not resolved is refused rather than kept as the cover.
 async fn artwork(url: &str) -> Result<PathBuf> {
     let dir = dirs::cache_dir()
         .unwrap_or_else(std::env::temp_dir)
@@ -287,14 +289,20 @@ async fn artwork(url: &str) -> Result<PathBuf> {
         }
     }
 
-    let bytes = reqwest::get(url)
+    let response = reqwest::get(url)
         .await
         .context("cannot request the cover")?
         .error_for_status()
-        .context("the cover request was refused")?
-        .bytes()
-        .await
-        .context("cannot read the cover")?;
+        .context("the cover request was refused")?;
+    // A cover the server has not resolved yet is answered with a stand-in of its own, and one kept
+    // here would be handed to the media widget for good: these bytes are read back for the url,
+    // long after the art they stand for has arrived.
+    if is_stand_in(response.headers()) {
+        return Err(anyhow::anyhow!(
+            "the cover is a stand-in for art the server has not resolved"
+        ));
+    }
+    let bytes = response.bytes().await.context("cannot read the cover")?;
     let format = image::guess_format(&bytes).context("cannot tell the cover format")?;
     image::load_from_memory_with_format(&bytes, format).context("cannot decode the cover")?;
 
@@ -302,6 +310,27 @@ async fn artwork(url: &str) -> Result<PathBuf> {
     let path = dir.join(&key).with_extension(extension(format));
     std::fs::write(&path, &bytes).context("cannot store the cover")?;
     Ok(path)
+}
+
+/// Whether an answer is the server's own stand-in for art it has not resolved, rather than art.
+///
+/// Navidrome's note on its placeholders is that they are "transient stand-ins for unresolved art:
+/// never cached, no validators", and a picture kept from one is a blue disc on the media widget
+/// long after the real art it stands for has arrived.
+fn is_stand_in(headers: &reqwest::header::HeaderMap) -> bool {
+    if headers.contains_key(ETAG) || headers.contains_key(LAST_MODIFIED) {
+        return false;
+    }
+    let Some(control) = headers.get(CACHE_CONTROL) else {
+        return false;
+    };
+    let Ok(value) = control.to_str() else {
+        return false;
+    };
+    value
+        .split(',')
+        .map(str::trim)
+        .any(|value| value.eq_ignore_ascii_case("no-store"))
 }
 
 fn extension(format: image::ImageFormat) -> &'static str {

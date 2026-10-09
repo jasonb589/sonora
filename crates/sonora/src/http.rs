@@ -181,6 +181,19 @@ impl HttpClient for Client {
                     });
                 let etag = header(&incoming, ETAG);
                 let modified = header(&incoming, LAST_MODIFIED);
+                // A stand-in is not art: the server is saying it has not resolved this cover yet,
+                // and drawing it puts a blue disc on a tile whose art is on its way. Answering as
+                // not found leaves the tile to ask again — which is what sets the server going —
+                // rather than pinning the stand-in to the cover for the rest of the run.
+                if cacheable && is_image && is_stand_in(incoming.headers()) {
+                    log::debug!("artwork: {uri} answered with a stand-in; leaving it for later");
+                    // The stand-in is left unread: it is not the art, and reading it to throw it
+                    // away would be a download nobody asked for.
+                    let gone = reqwest::StatusCode::NOT_FOUND;
+                    let empty = Vec::<u8>::new();
+                    return Ok::<_, anyhow::Error>((gone, empty.into()));
+                }
+
                 let bytes = incoming.bytes().await?;
 
                 if status == reqwest::StatusCode::NOT_MODIFIED
@@ -547,6 +560,28 @@ fn asks_to_recheck(headers: &reqwest::header::HeaderMap) -> bool {
                     || value.eq_ignore_ascii_case("max-age=0")
             })
         })
+}
+
+/// Whether an answer is the server's own stand-in for art it has not resolved, rather than art.
+///
+/// Navidrome's note on its placeholders is that they are "transient stand-ins for unresolved art:
+/// never cached, no validators", and a picture drawn from one is a blue disc on a tile whose art
+/// is on its way. Both halves of that are asked for here, so art that is merely uncacheable or
+/// merely unvalidated is still drawn.
+fn is_stand_in(headers: &reqwest::header::HeaderMap) -> bool {
+    if headers.contains_key(ETAG) || headers.contains_key(LAST_MODIFIED) {
+        return false;
+    }
+    let Some(control) = headers.get(CACHE_CONTROL) else {
+        return false;
+    };
+    let Ok(value) = control.to_str() else {
+        return false;
+    };
+    value
+        .split(',')
+        .map(str::trim)
+        .any(|value| value.eq_ignore_ascii_case("no-store"))
 }
 
 fn read(body: AsyncBody) -> Result<Option<Vec<u8>>> {
