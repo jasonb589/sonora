@@ -48,7 +48,7 @@ mod view;
 mod visualizer;
 
 pub use artwork::{Artwork, Avatar, artwork_usage, cover_palette, reload_artwork, retry_failed};
-pub use button::Button;
+pub use button::{Button, SMALL_INSET};
 pub use card::CARD_GROUP;
 pub use card::Card;
 pub use checkbox::Checkbox;

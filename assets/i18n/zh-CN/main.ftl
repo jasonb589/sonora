@@ -853,9 +853,20 @@ update-detail = 你当前使用的是 { $running }。查看更新内容，或立
 update-detail-notes = 你当前使用的是 { $running }。查看更新内容，然后按你的安装方式更新 Sonora。
 update-notes = 新内容
 update-now = 更新
-update-later = 稍后
 update-working = 正在下载更新…
 update-failed = 更新无法安装。请从发布页面重试。
+update-never = 不检查更新
+notice-never = 不再显示
+requirement-audio-bridge-title = 无法连接你的声音服务器
+requirement-audio-bridge = { $server ->
+    [pulseaudio] PulseAudio 正在运行，但 ALSA 没有通往它的路径，所以你播放的内容听不到。请安装 pulseaudio-alsa 并重启 Sonora。
+   *[pipewire] PipeWire 正在运行，但 ALSA 没有通往它的路径，所以你播放的内容听不到。请安装 pipewire-alsa 并重启 Sonora。
+}
+requirement-audio-output-title = 没有声音输出
+requirement-audio-output = Sonora 无法打开你的音频设备，所以你播放的内容听不到。请检查设备是否已连接、是否被其他应用占用。
+requirement-web-engine-title = 无法使用浏览器登录
+requirement-web-engine = 安装 webkit2gtk-4.1 后才能用浏览器窗口登录 YouTube Music、Deezer 或 Apple Music。在此之前请改用粘贴 Cookie 的方式。
+requirement-help = 需要安装什么
 settings-check-updates = 检查更新
 settings-check-updates-detail = 启动时向 GitHub 查询一次是否有新版本。Sonora 仅在 Windows 上自行安装更新；其他平台会指引你查看更新内容
 settings-log = 日志文件
