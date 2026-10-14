@@ -101,7 +101,8 @@ instead, which takes a while on a Rust and GPUI tree but links against your own 
 yay -S sonora
 ```
 
-Either `pipewire-alsa` or `pulseaudio-alsa` is required, matching your sound server.
+Either `pipewire-alsa` or `pulseaudio-alsa` is required, matching your sound server. Sonora
+warns you at startup when the one your sound server needs is missing.
 
 #### Flatpak
 
@@ -199,21 +200,21 @@ AI-assisted proofreading and translation of human-written text are permitted.
 
 | Language | Translated | Coverage |
 | --- | --- | --- |
-| English (`en-US`) | 765/765 | 100% |
-| Deutsch (`de`) | 628/765 | 82% |
-| Español (`es`) | 690/765 | 90% |
-| Français (`fr`) | 749/765 | 98% |
-| Italiano (`it`) | 605/765 | 79% |
-| Bahasa Indonesia (`id`) | 605/765 | 79% |
-| 日本語 (`ja`) | 605/765 | 79% |
-| Русский (`ru`) | 711/765 | 93% |
-| Українська (`uk`) | 711/765 | 93% |
-| Polski (`pl`) | 711/765 | 93% |
-| Čeština (`cs`) | 743/765 | 97% |
-| Português (Brasil) (`pt-BR`) | 605/765 | 79% |
-| 简体中文 (`zh-CN`) | 765/765 | 100% |
-| Türkçe (`tr`) | 605/765 | 79% |
-| Shqip (`sq`) | 714/765 | 93% |
+| English (`en-US`) | 773/773 | 100% |
+| Deutsch (`de`) | 627/773 | 81% |
+| Español (`es`) | 689/773 | 89% |
+| Français (`fr`) | 748/773 | 97% |
+| Italiano (`it`) | 604/773 | 78% |
+| Bahasa Indonesia (`id`) | 604/773 | 78% |
+| 日本語 (`ja`) | 604/773 | 78% |
+| Русский (`ru`) | 710/773 | 92% |
+| Українська (`uk`) | 710/773 | 92% |
+| Polski (`pl`) | 710/773 | 92% |
+| Čeština (`cs`) | 742/773 | 96% |
+| Português (Brasil) (`pt-BR`) | 604/773 | 78% |
+| 简体中文 (`zh-CN`) | 773/773 | 100% |
+| Türkçe (`tr`) | 604/773 | 78% |
+| Shqip (`sq`) | 713/773 | 92% |
 
 <!-- i18n:end -->
 
