@@ -159,9 +159,19 @@ locally, and every check runs on GitHub Actions.
   away, so the next sync replays every upstream commit since the last *shared* commit instead of
   the delta — the 0.42.2 sync paid for 0.42.1 a second time for exactly this reason. Merge
   `upstream/main` into `sync/upstream-X.Y.Z` and merge that branch into `main` with `--merge`.
-- **Resolving a sync conflict:** ask which side changed the file since the last synced upstream
-  commit, with `git diff <that commit> main -- <file>` against
+  0.43.0 was the first sync done that way, so `upstream/main` is an ancestor of `main` from then
+  on and the next base is the release that was merged.
+- **A sync conflict is decided by which side changed the file since the last synced upstream
+  commit:** `git diff <that commit> main -- <file>` against
   `git diff <that commit> upstream/main -- <file>`. One side changed it → take that side. Both
   changed it → merge by hand. `README.md`'s translation table is regenerated rather than merged.
-  Afterwards check that the dead workflows this copy removed did not come back, that
-  `Cargo.toml` and `Cargo.lock` are consistent, and that `zh-CN` covers the new keys.
+- **A merge that reports no conflict can still be wrong.** A file only one side had touched came
+  out with both sides' content, which showed up as a duplicated function in
+  `crates/sonora/src/logging.rs`. For every such file the merged tree must equal that side:
+  `git diff --quiet <side> HEAD -- <file>` per file, and in PowerShell that answer is in
+  `$LASTEXITCODE`, not in the output a `-not (...)` would read. Afterwards check that the dead
+  workflows this copy removed did not come back, that `Cargo.toml` and `Cargo.lock` are
+  consistent, and that `zh-CN` covers the new keys.
+- **`crates/state/src/settings.rs` carries one fork-only line:** its state-store test drops the
+  store before removing the database, because the kept connection holds the file open and Windows
+  refuses to delete it. Keep that line when the file conflicts.
