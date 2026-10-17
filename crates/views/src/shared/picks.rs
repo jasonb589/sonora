@@ -219,7 +219,7 @@ impl RenderOnce for Picks {
             .child(
                 div()
                     .flex()
-                    .items_end()
+                    .items_center()
                     .justify_between()
                     .group("deck-actions")
                     .gap_4()

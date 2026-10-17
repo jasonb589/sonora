@@ -196,7 +196,9 @@ impl Render for HomeView {
             });
 
         Scroller::new("home-page", &self.scrollbar)
-            .p(theme.metrics.inset)
+            .px(theme.metrics.inset)
+            .pt_3()
+            .pb(theme.metrics.inset)
             .child(
                 div()
                     .flex()

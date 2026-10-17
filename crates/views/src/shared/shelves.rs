@@ -222,7 +222,7 @@ impl Shelves {
             .child(
                 div()
                     .flex()
-                    .items_end()
+                    .items_center()
                     .justify_between()
                     .gap_4()
                     .h(head(window, cx))
