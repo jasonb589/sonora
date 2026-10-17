@@ -9,7 +9,7 @@ use gpui::{
 };
 use i18n::t;
 use music::GenreItem;
-use state::{Home, Network, Playback, SessionState, Sonora};
+use state::{Home, Network, Playback, Sonora};
 use ui::{ActiveTheme as _, Lazy, Mode, Popup, Scrollbar, Scroller};
 
 use crate::shared::cells;
@@ -106,21 +106,13 @@ impl HomeView {
             .update(cx, |home, cx| home.set_visible(visible, cx));
     }
 
-    /// The Quick picks deck, headed by the name of the account it was drawn from. It is the
-    /// one deck on the page: what the provider lists as played lately and its picks after
-    /// them, a skeleton while they are on their way.
+    /// The Quick picks deck. It is the one deck on the page: what the provider lists as played
+    /// lately and its picks after them, a skeleton while they are on their way.
     fn quick_picks(&mut self, width: Pixels, cx: &mut Context<Self>) -> AnyElement {
         let items = self.home.read(cx).quick_picks();
         let shape = Shape::new(width, items.len());
         let pages = shape.pages;
         let page = self.quick_picks.fit(shape.columns, shape.pages);
-        let name = match self.home.read(cx).is_local(cx) {
-            true => None,
-            false => match Sonora::global(cx).session.read(cx).state() {
-                SessionState::SignedIn(profile) => Some(profile.display_name.clone()),
-                _ => None,
-            },
-        };
         let opened = items.clone();
         let home = cx.entity().downgrade();
 
@@ -128,9 +120,6 @@ impl HomeView {
             .title("home-quick-picks")
             .vacancy("home-quick-picks-empty")
             .loading(self.home.read(cx).is_loading(cx))
-            .when_some(name.filter(|name| !name.is_empty()), |deck, name| {
-                deck.eyebrow(name)
-            })
             .on_previous(cx.listener(|this, _, _, cx| {
                 this.quick_picks.page = this.quick_picks.page.saturating_sub(1);
                 this.context_menu = None;
