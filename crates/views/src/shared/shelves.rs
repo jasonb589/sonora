@@ -226,12 +226,15 @@ impl Shelves {
                     .justify_between()
                     .gap_4()
                     .h(head(window, cx))
+                    .group("rail-actions")
                     .child(heading(i18n::translate(&section.title), cx))
                     .child(
                         div()
                             .flex()
                             .items_center()
                             .gap_2()
+                            .invisible()
+                            .group_hover("rail-actions", |style| style.visible())
                             .when(crowded, |this| {
                                 this.child(self.arrows(place, &handle, &glide, me))
                             })

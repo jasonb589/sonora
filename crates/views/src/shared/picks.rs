@@ -221,9 +221,9 @@ impl RenderOnce for Picks {
                     .flex()
                     .items_end()
                     .justify_between()
+                    .group("deck-actions")
                     .gap_4()
-                    .px_3()
-                    .py_2()
+                    .pb_2()
                     .border_b_1()
                     .border_color(line)
                     .child(
@@ -239,6 +239,8 @@ impl RenderOnce for Picks {
                             .flex()
                             .items_center()
                             .gap_1()
+                            .invisible()
+                            .group_hover("deck-actions", |style| style.visible())
                             .child(
                                 Button::new(SharedString::from(format!("{id}-previous")))
                                     .small()
