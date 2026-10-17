@@ -327,14 +327,10 @@ impl Render for Workspace {
             .child(
                 div()
                     .relative()
-                    .px(cx.theme().metrics.pad)
-                    .pb(cx.theme().metrics.pad)
                     .child(
-                        div().rounded(cx.theme().radius).overflow_hidden().child(
-                            self.player_bar
-                                .clone()
-                                .cached(StyleRefinement::default().w_full().h(bar_height)),
-                        ),
+                        self.player_bar
+                            .clone()
+                            .cached(StyleRefinement::default().w_full().h(bar_height)),
                     )
                     .child(self.toasts.clone()),
             )

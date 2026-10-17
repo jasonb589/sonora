@@ -321,61 +321,6 @@ pub(crate) fn shown(cx: &App) -> bool {
     Sonora::global(cx).settings.read(cx).ambient()
 }
 
-/// How dark the page tint reads in a dark theme, and how light in a light one.
-const PAGE_DARK: f32 = 0.16;
-const PAGE_LIGHT: f32 = 0.94;
-/// How much of the cover's saturation the page keeps, and the ceiling it may not pass: a page is
-/// a shade of the art, not the art itself.
-const PAGE_SATURATION: f32 = 0.5;
-const PAGE_SATURATION_MAX: f32 = 0.42;
-/// A pale page carries chroma further, so a light theme keeps less of it.
-const PAGE_LIGHT_SATURATION: f32 = 0.4;
-/// How much darker than the page the sidebar beside it reads.
-const PAGE_SIDEBAR: f32 = 0.82;
-
-/// The colour the workspace page takes from the playing art: the cover's hue held at this theme's
-/// lightness and capped in saturation, so the page is a shade of the record rather than its paint.
-/// `None` leaves the page the plain theme colour.
-pub(crate) fn page_tint(cx: &App) -> Option<Hsla> {
-    let theme = cx.theme();
-    let cover = Sonora::global(cx)
-        .playback
-        .read(cx)
-        .track()
-        .and_then(|track| track.cover.clone());
-    let palette = cover.and_then(|cover| ui::cover_palette(&cover, cx))?;
-    let tint = palette.primary.or(palette.secondary)?;
-    let dark = theme.background.l < 0.5;
-    Some(Hsla {
-        h: tint.h,
-        s: match dark {
-            true => (tint.s * PAGE_SATURATION).min(PAGE_SATURATION_MAX),
-            false => tint.s * PAGE_SATURATION * PAGE_LIGHT_SATURATION,
-        },
-        l: match dark {
-            true => PAGE_DARK,
-            false => PAGE_LIGHT,
-        },
-        a: theme.background.a,
-    })
-}
-
-/// The same colour a step darker, for the sidebar that sits beside the page.
-pub(crate) fn page_sidebar(tint: Hsla) -> Hsla {
-    Hsla {
-        l: tint.l * PAGE_SIDEBAR,
-        ..tint
-    }
-}
-
-/// The shade the sidebar takes when the page is tinted, or nothing when the look is the plain one.
-pub(crate) fn sidebar_shade(cx: &App) -> Option<Hsla> {
-    match Sonora::global(cx).settings.read(cx).immersive() {
-        true => page_tint(cx).map(page_sidebar),
-        false => None,
-    }
-}
-
 /// A colour as the dark overlay leaves it. Black at `SHADE` over an opaque colour is that
 /// colour's channels cut by what the sheet lets through, so cutting them here is the same
 /// picture with one layer fewer to spend the window's alpha on.

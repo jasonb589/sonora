@@ -659,9 +659,6 @@ impl Render for SidebarLeft {
                 !theme.transparent && !self.settings.read(cx).immersive(),
                 |this| this.bg(sidebar_bg),
             )
-            .when_some(crate::shared::ambient::sidebar_shade(cx), |this, shade| {
-                this.bg(shade)
-            })
             .border_color(sidebar_border)
             .when(overlaid, |this| {
                 this.occlude().absolute().left_0().top_0().bottom_0()
