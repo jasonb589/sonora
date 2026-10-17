@@ -703,6 +703,16 @@ impl Root {
 
 const UI_FONT: &str = "Inter";
 
+/// How dark the page tint reads in a dark theme, and how light in a light one.
+const PAGE_DARK_LIGHTNESS: f32 = 0.16;
+const PAGE_LIGHT_LIGHTNESS: f32 = 0.94;
+/// How much of the cover's saturation the page keeps, and the ceiling it may not pass: a page is
+/// a shade of the art, not the art itself.
+const PAGE_SATURATION: f32 = 0.5;
+const PAGE_SATURATION_MAX: f32 = 0.42;
+/// A pale page carries chroma further, so a light theme keeps less of it.
+const PAGE_LIGHT_SATURATION: f32 = 0.4;
+
 const SCRIPTS: [&str; 18] = [
     "Source Han Sans",
     "Noto Sans CJK JP",
@@ -864,9 +874,31 @@ impl Render for Root {
         // see-through fullscreen reading nearly solid.
         let immersive = Sonora::global(cx).settings.read(cx).immersive();
         let ambient = matches!(self.view, RootView::Fullscreen) && ambient::shown(cx);
-        // The workspace takes its page colour from the playing art, the way Apple Music's does.
+        // The workspace takes its page colour from the playing art, the way Apple Music's does:
+        // the cover's own tint rather than a field of blobs, so the page is one deep shade.
         let page = match immersive && matches!(self.view, RootView::Workspace) {
-            true => ambient::page_tint(cx),
+            true => {
+                let cover = self
+                    .playback
+                    .read(cx)
+                    .track()
+                    .and_then(|track| track.cover.clone());
+                let tint = cover
+                    .and_then(|cover| ui::cover_palette(&cover, cx))
+                    .and_then(|palette| palette.primary);
+                tint.map(|tint| gpui::Hsla {
+                    h: tint.h,
+                    s: match theme.background.l < 0.5 {
+                        true => (tint.s * PAGE_SATURATION).min(PAGE_SATURATION_MAX),
+                        false => tint.s * PAGE_SATURATION * PAGE_LIGHT_SATURATION,
+                    },
+                    l: match theme.background.l < 0.5 {
+                        true => PAGE_DARK_LIGHTNESS,
+                        false => PAGE_LIGHT_LIGHTNESS,
+                    },
+                    a: theme.background.a,
+                })
+            }
             false => None,
         };
 
@@ -918,11 +950,7 @@ impl Render for Root {
                 this.rounded(radius).overflow_hidden()
             })
             .when(!ambient, |this| match page {
-                Some(page) => this.bg(gpui::linear_gradient(
-                    180.,
-                    gpui::linear_color_stop(page, 0.),
-                    gpui::linear_color_stop(ambient::page_sidebar(page), 1.),
-                )),
+                Some(page) => this.bg(page),
                 None => this.bg(theme.background),
             })
             .text_color(theme.foreground)
