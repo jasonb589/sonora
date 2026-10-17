@@ -703,6 +703,16 @@ impl Root {
 
 const UI_FONT: &str = "Inter";
 
+/// How dark the page tint reads in a dark theme, and how light in a light one.
+const PAGE_DARK_LIGHTNESS: f32 = 0.16;
+const PAGE_LIGHT_LIGHTNESS: f32 = 0.94;
+/// How much of the cover's saturation the page keeps, and the ceiling it may not pass: a page is
+/// a shade of the art, not the art itself.
+const PAGE_SATURATION: f32 = 0.5;
+const PAGE_SATURATION_MAX: f32 = 0.42;
+/// A pale page carries chroma further, so a light theme keeps less of it.
+const PAGE_LIGHT_SATURATION: f32 = 0.4;
+
 const SCRIPTS: [&str; 18] = [
     "Source Han Sans",
     "Noto Sans CJK JP",
@@ -873,8 +883,21 @@ impl Render for Root {
                     .read(cx)
                     .track()
                     .and_then(|track| track.cover.clone());
-                let palette = cover.and_then(|cover| ui::cover_palette(&cover, cx));
-                palette.map(|palette| theme.cover_fill(Some(palette)).background)
+                let tint = cover
+                    .and_then(|cover| ui::cover_palette(&cover, cx))
+                    .and_then(|palette| palette.primary);
+                tint.map(|tint| gpui::Hsla {
+                    h: tint.h,
+                    s: match theme.background.l < 0.5 {
+                        true => (tint.s * PAGE_SATURATION).min(PAGE_SATURATION_MAX),
+                        false => tint.s * PAGE_SATURATION * PAGE_LIGHT_SATURATION,
+                    },
+                    l: match theme.background.l < 0.5 {
+                        true => PAGE_DARK_LIGHTNESS,
+                        false => PAGE_LIGHT_LIGHTNESS,
+                    },
+                    a: theme.background.a,
+                })
             }
             false => None,
         };
