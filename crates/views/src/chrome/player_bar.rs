@@ -11,6 +11,7 @@ use gpui::{Window, div, px};
 use i18n::t;
 use input::{ToggleFullscreen, ToggleLyrics, ToggleQueue};
 use state::{AppSettings, Playback, Queue, SideTab, Sonora};
+use ui::glass;
 use ui::{
     Artwork, Button, ExplicitBadge, InlineLink, InlineLinks, Popup, Room, Scrollbar, Scrubber,
     ScrubberState, clock, tabular,
@@ -444,9 +445,13 @@ impl Render for PlayerBar {
             .px_5()
             .when(stacked, |this| this.py_2())
             .when_some(radius, |this, radius| this.rounded_b(radius))
-            .when(!theme.transparent, |this| this.bg(theme.secondary))
-            .border_t_1()
-            .border_color(theme.border)
+            .map(|this| match self.settings.read(cx).immersive() {
+                true => glass(this, cx),
+                false => this
+                    .when(!theme.transparent, |this| this.bg(theme.secondary))
+                    .border_t_1()
+                    .border_color(theme.border),
+            })
             .on_mouse_move(cx.listener(Self::hover));
 
         let context_menu = self.context_menu.clone().map(|(track, position)| {

@@ -655,7 +655,10 @@ impl Render for SidebarLeft {
                 cx.notify();
             }))
             .when(!self.is_open(), |this| this.hidden())
-            .when(!theme.transparent, |this| this.bg(sidebar_bg))
+            .when(
+                !theme.transparent && !self.settings.read(cx).immersive(),
+                |this| this.bg(sidebar_bg),
+            )
             .border_color(sidebar_border)
             .when(overlaid, |this| {
                 this.occlude().absolute().left_0().top_0().bottom_0()

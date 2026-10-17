@@ -204,6 +204,7 @@ impl Render for TitleBar {
         let content = self.options.content.clone();
         let window_fullscreen = window.is_fullscreen();
         let settings = self.settings.read(cx);
+        let immersive = settings.immersive();
         #[cfg(any(target_os = "linux", target_os = "freebsd"))]
         let controls =
             matches!(window.window_decorations(), Decorations::Client { .. }) && !window_fullscreen;
@@ -228,14 +229,15 @@ impl Render for TitleBar {
             .h(height)
             .flex_none()
             .when_some(radius, |this, radius| this.rounded_t(radius))
-            .when(!self.options.transparent && !theme.transparent, |this| {
-                this.bg(theme.background)
-            })
+            .when(
+                !self.options.transparent && !theme.transparent && !immersive,
+                |this| this.bg(theme.background),
+            )
             // The height is a border box, so a bar that drops its border centres its controls
             // one pixel lower than one that keeps it. The edge is always an edge; only its
             // colour goes, and fullscreen's controls land where the workspace's do.
             .border_b_1()
-            .border_color(match self.options.border {
+            .border_color(match self.options.border && !immersive {
                 true => theme.title_bar_border,
                 false => gpui::transparent_black(),
             })
