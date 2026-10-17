@@ -863,8 +863,21 @@ impl Render for Root {
         // the page colour under it would only stack a second alpha beneath that and leave a
         // see-through fullscreen reading nearly solid.
         let immersive = Sonora::global(cx).settings.read(cx).immersive();
-        let ambient =
-            (matches!(self.view, RootView::Fullscreen) || immersive) && ambient::shown(cx);
+        let ambient = matches!(self.view, RootView::Fullscreen) && ambient::shown(cx);
+        // The workspace takes its page colour from the playing art, the way Apple Music's does:
+        // the cover's own tint rather than a field of blobs, so the page is one deep shade.
+        let page = match immersive && matches!(self.view, RootView::Workspace) {
+            true => {
+                let cover = self
+                    .playback
+                    .read(cx)
+                    .track()
+                    .and_then(|track| track.cover.clone());
+                let palette = cover.and_then(|cover| ui::cover_palette(&cover, cx));
+                palette.map(|palette| theme.cover_fill(Some(palette)).background)
+            }
+            false => None,
+        };
 
         // The shell enters the way a page enters the workspace. An opaque window fades it
         // under a scrim of the page colour, which leaves the workspace's cached views alone,
@@ -913,7 +926,10 @@ impl Render for Root {
             .when_some(radius, |this, radius| {
                 this.rounded(radius).overflow_hidden()
             })
-            .when(!ambient, |this| this.bg(theme.background))
+            .when(!ambient, |this| match page {
+                Some(page) => this.bg(page),
+                None => this.bg(theme.background),
+            })
             .text_color(theme.foreground)
             .capture_any_mouse_down(|_, window, cx| {
                 if ui::cancel_middle_scroll(cx) {

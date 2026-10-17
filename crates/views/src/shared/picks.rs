@@ -4,7 +4,7 @@ use gpui::prelude::*;
 use gpui::{App, ClickEvent, Entity, MouseDownEvent, Pixels, SharedString, Window, div};
 use music::{GenreItem, Track};
 use state::{Playback, Sonora};
-use ui::{ActiveTheme as _, Button, Card, eyebrow, glass, heading, snapped, vacant};
+use ui::{ActiveTheme as _, Button, Card, eyebrow, heading, snapped, vacant};
 
 use crate::shared::cards;
 use crate::shared::track_card::{ContextHandler, StartHandler, TrackCard};
@@ -216,7 +216,6 @@ impl RenderOnce for Picks {
             .rounded(theme.radius)
             .border_1()
             .border_color(line)
-            .when(immersive, |this| glass(this, cx))
             .child(
                 div()
                     .flex()
