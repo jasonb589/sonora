@@ -3,8 +3,8 @@ use std::rc::Rc;
 use gpui::prelude::*;
 use gpui::{App, ClickEvent, Entity, MouseDownEvent, Pixels, SharedString, Window, div};
 use music::{GenreItem, Track};
-use state::Playback;
-use ui::{ActiveTheme as _, Button, Card, eyebrow, heading, snapped, vacant};
+use state::{Playback, Sonora};
+use ui::{ActiveTheme as _, Button, Card, eyebrow, glass, heading, snapped, vacant};
 
 use crate::shared::cards;
 use crate::shared::track_card::{ContextHandler, StartHandler, TrackCard};
@@ -187,6 +187,14 @@ impl Picks {
 impl RenderOnce for Picks {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let theme = *cx.theme();
+
+        // The immersive look drops the lines and floats the block on the page's own background.
+        // A transparent colour still draws the one-pixel edge, so no row moves between looks.
+        let immersive = Sonora::global(cx).settings.read(cx).immersive();
+        let line = match immersive {
+            true => gpui::transparent_black(),
+            false => theme.border,
+        };
         let shape = Shape::new(self.width, self.rows.len());
         let page = self.page.min(shape.pages.saturating_sub(1));
         let start = page * shape.slots();
@@ -207,7 +215,8 @@ impl RenderOnce for Picks {
             .overflow_hidden()
             .rounded(theme.radius)
             .border_1()
-            .border_color(theme.border)
+            .border_color(line)
+            .when(immersive, |this| glass(this, cx))
             .child(
                 div()
                     .flex()
@@ -217,7 +226,7 @@ impl RenderOnce for Picks {
                     .px_3()
                     .py_2()
                     .border_b_1()
-                    .border_color(theme.border)
+                    .border_color(line)
                     .child(
                         div()
                             .flex()
@@ -267,13 +276,13 @@ impl RenderOnce for Picks {
                     empty,
                     |this| {
                         this.children((0..shape.columns).map(|column| {
-                            column_shell(column, theme.border)
+                            column_shell(column, line)
                                 .children((0..ROWS).map(|slot| skeleton(id, column * ROWS + slot)))
                         }))
                     },
                     |this| {
                         this.children((0..shape.columns).map(|column| {
-                            column_shell(column, theme.border).children((0..ROWS).map(|slot| {
+                            column_shell(column, line).children((0..ROWS).map(|slot| {
                                 let place = start + column * ROWS + slot;
                                 match &rows {
                                     Rows::Tracks(tracks) if place < tracks.len() => TrackCard::new(

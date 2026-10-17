@@ -341,6 +341,9 @@ struct Appearance {
     blur: bool,
     /// Whether a see-through window asks the platform to blur the desktop behind it.
     blur_window: bool,
+    /// Whether the page floats over a cover-tinted background with no borders around its
+    /// shelves, rather than sitting in bordered boxes on a flat page.
+    immersive: bool,
     font_size: f32,
     transparent: bool,
     transparency: f32,
@@ -626,6 +629,7 @@ impl Default for Appearance {
             rounding: Rounding::Rounded.id().to_owned(),
             blur: true,
             blur_window: true,
+            immersive: true,
             font_size: DEFAULT_FONT_SIZE,
             transparent: false,
             transparency: ui::BACKDROP_TRANSPARENCY,
@@ -1020,6 +1024,11 @@ impl AppSettings {
 
     pub fn blur_window(&self) -> bool {
         self.values.appearance.blur_window
+    }
+
+    /// Whether the page floats over a cover-tinted background rather than in bordered boxes.
+    pub fn immersive(&self) -> bool {
+        self.values.appearance.immersive
     }
 
     /// Whether opening the fullscreen view also puts the window into OS fullscreen.
@@ -1673,6 +1682,12 @@ impl AppSettings {
 
     pub fn set_blur_window(&mut self, blur: bool, cx: &mut Context<Self>) {
         self.values.appearance.blur_window = blur;
+        self.schedule_save(cx);
+    }
+
+    /// Whether the page floats over a cover-tinted background rather than in bordered boxes.
+    pub fn set_immersive(&mut self, immersive: bool, cx: &mut Context<Self>) {
+        self.values.appearance.immersive = immersive;
         self.schedule_save(cx);
     }
 

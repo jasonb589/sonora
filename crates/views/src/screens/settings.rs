@@ -144,6 +144,7 @@ enum Slot {
     Opacity,
     WindowBlur,
     Blur,
+    Immersive,
     Corners,
     FullscreenControlsAutohide,
     OsFullscreen,
@@ -576,6 +577,7 @@ impl SettingsView {
             .chain(ui::WINDOW_BLUR.then_some(Slot::WindowBlur))
             .chain([
                 Slot::Blur,
+                Slot::Immersive,
                 Slot::Corners,
                 Slot::Title("settings-group-fullscreen"),
                 Slot::Ambient,
@@ -713,6 +715,7 @@ impl SettingsView {
                 t!("settings-blur-window-detail"),
             ),
             Slot::Blur => (t!("settings-blur"), t!("settings-blur-detail")),
+            Slot::Immersive => (t!("settings-immersive"), t!("settings-immersive-detail")),
             Slot::Corners => (t!("settings-corners"), t!("settings-corners-detail")),
             Slot::FullscreenControlsAutohide => (
                 t!("settings-fullscreen-controls-autohide"),
@@ -965,6 +968,7 @@ impl SettingsView {
             Slot::Opacity => self.opacity_row(cx).element,
             Slot::WindowBlur => self.blur_window_row(cx).element,
             Slot::Blur => self.blur_row(cx).element,
+            Slot::Immersive => self.immersive_row(cx).element,
             Slot::Corners => self.corners_row(cx).element,
             Slot::FullscreenControlsAutohide => self.fullscreen_controls_autohide_row(cx).element,
             Slot::OsFullscreen => self.os_fullscreen_row(cx).element,
@@ -1416,6 +1420,34 @@ impl SettingsView {
                     this.settings
                         .update(cx, |settings, cx| settings.set_blur(blur, cx));
                     Theme::set(Look { blur, ..look }, &overrides, cx);
+                    cx.notify();
+                }))
+                .into_any_element(),
+        )
+    }
+
+    /// Switches the page between the immersive look and the bordered one. The views read the
+    /// setting themselves, so re-applying the look is only here to repaint them.
+    fn immersive_row(&self, cx: &mut Context<Self>) -> Setting {
+        let theme = *cx.theme();
+        let muted = theme.muted_foreground;
+        let small = theme.text(Text::Small);
+        let look = self.look(cx);
+        let settings = self.settings.read(cx);
+        let overrides = settings.theme_overrides();
+        let immersive = settings.immersive();
+        let next = !immersive;
+
+        self.row(
+            t!("settings-immersive"),
+            t!("settings-immersive-detail"),
+            muted,
+            small,
+            Switch::new("immersive", immersive)
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    this.settings
+                        .update(cx, |settings, cx| settings.set_immersive(next, cx));
+                    Theme::set(look, &overrides, cx);
                     cx.notify();
                 }))
                 .into_any_element(),

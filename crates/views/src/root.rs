@@ -862,7 +862,9 @@ impl Render for Root {
         // The ambient field covers the window whole and carries the window's own opacity, so
         // the page colour under it would only stack a second alpha beneath that and leave a
         // see-through fullscreen reading nearly solid.
-        let ambient = matches!(self.view, RootView::Fullscreen) && ambient::shown(cx);
+        let immersive = Sonora::global(cx).settings.read(cx).immersive();
+        let ambient =
+            (matches!(self.view, RootView::Fullscreen) || immersive) && ambient::shown(cx);
 
         // The shell enters the way a page enters the workspace. An opaque window fades it
         // under a scrim of the page colour, which leaves the workspace's cached views alone,
