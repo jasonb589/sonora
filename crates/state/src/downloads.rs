@@ -241,6 +241,7 @@ impl Downloads {
                 this.pump(cx);
             }
             SessionEvent::SignedOut => this.clear(cx),
+            SessionEvent::WentOffline => this.halt(cx),
             SessionEvent::LocalChanged => {}
         })
         .detach();
@@ -358,6 +359,26 @@ impl Downloads {
     /// Whether anything at all is downloaded or on its way.
     pub fn is_empty(&self) -> bool {
         self.tracks.is_empty()
+    }
+
+    /// How many tracks are downloaded or on their way.
+    pub fn len(&self) -> usize {
+        self.tracks.len()
+    }
+
+    /// The ids of the artists credited on a downloaded album or playlist or on any of its tracks.
+    pub fn credited(&self) -> impl Iterator<Item = &str> {
+        self.sets
+            .values()
+            .flat_map(|set| {
+                let head = match &set.head {
+                    Head::Album(album) => album.artist_refs.as_slice(),
+                    Head::Playlist(_) => &[],
+                };
+                head.iter()
+                    .chain(set.tracks.iter().flat_map(|track| &track.artist_refs))
+            })
+            .filter_map(|artist| artist.id.as_deref())
     }
 
     /// The downloaded copy of an album page, for when the provider is out of reach.
@@ -963,6 +984,16 @@ impl Downloads {
             self.queue.push_front(id);
         }
         self.pump(cx);
+        cx.notify();
+    }
+
+    /// Stops the downloads under way and puts them back in the queue, which waits for the account
+    /// to sign in again.
+    fn halt(&mut self, cx: &mut Context<Self>) {
+        self.running.clear();
+        self.ticker = None;
+        self.requeue();
+        self.report(cx);
         cx.notify();
     }
 

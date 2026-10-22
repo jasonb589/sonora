@@ -48,7 +48,7 @@ impl ArtistDetail {
                     cx.notify();
                 }
             }
-            SessionEvent::Reconnected => {}
+            SessionEvent::Reconnected | SessionEvent::WentOffline => {}
             SessionEvent::LocalChanged => {
                 if let Some(id) = this.id.clone().filter(|id| music::is_local_id(id)) {
                     this.clear();

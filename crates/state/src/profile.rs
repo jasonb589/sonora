@@ -32,7 +32,7 @@ impl Profile {
                 this.clear();
                 cx.notify();
             }
-            SessionEvent::Reconnected | SessionEvent::LocalChanged => {}
+            SessionEvent::Reconnected | SessionEvent::WentOffline | SessionEvent::LocalChanged => {}
         })
         .detach();
 

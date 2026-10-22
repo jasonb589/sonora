@@ -819,9 +819,21 @@ impl Render for DetailView {
 impl DetailView {
     /// The page an album or a playlist shows instead of its header and its table when it cannot
     /// be read: the No connection state as soon as the network is gone, whatever rows this page
-    /// happens to hold, and the failure of its own load otherwise.
+    /// happens to hold, and the failure of its own load otherwise. A downloaded album or
+    /// playlist opens from its kept copy instead, network or not.
     fn failure(&self, cx: &Context<Self>) -> Option<AnyElement> {
-        let id = self.detail.read(cx).id()?.to_owned();
+        let detail = self.detail.read(cx);
+        let id = detail.id()?.to_owned();
+        let kept = detail.kind().is_some_and(|kind| {
+            Sonora::global(cx)
+                .downloads
+                .read(cx)
+                .set(kind, &id)
+                .is_some()
+        });
+        if kept && detail.error().is_none() {
+            return None;
+        }
         let reason = match trouble::unreachable(&id, cx) {
             true => None,
             false => Some(self.detail.read(cx).error()?.to_owned()),
@@ -836,6 +848,7 @@ impl DetailView {
                 move |_, _, cx| {
                     detail.update(cx, |detail, cx| detail.reload(cx));
                 },
+                cx,
             )
             .size_full()
             .into_any_element(),
@@ -871,7 +884,7 @@ impl DetailView {
         self.table
             .read(cx)
             .delegate()
-            .toggles()
+            .toggles(cx)
             .into_iter()
             .filter(|toggle| !PINNED.contains(&toggle.key))
             .collect()

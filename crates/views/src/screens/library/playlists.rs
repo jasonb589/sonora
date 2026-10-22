@@ -5,7 +5,7 @@ use gpui::{AnyElement, App, Entity, TextAlign};
 use i18n::t;
 use music::Playlist;
 use router::Destination;
-use state::{Collection, Library, LibraryPart, Origin, Playback, Shelf, Sonora};
+use state::{Collection, Library, LibraryPart, Network, Origin, Playback, Shelf, Sonora};
 use ui::rank::{ESSENTIAL, HANDY, NICE, SPARE};
 use ui::{Cell, ColumnSpec, Menu, Pin, TableSource, Width};
 
@@ -128,7 +128,8 @@ impl TableSource for PlaylistSource {
     fn matches(&self, row: usize, query: &str, cx: &App) -> bool {
         self.playlists(cx).get(row).is_some_and(|playlist| {
             (!self.owned || playlist.owned)
-                && (!self.downloaded || downloaded(&playlist.id, cx))
+                && (!(self.downloaded || Network::downloads_only(self.shelf, cx))
+                    || downloaded(&playlist.id, cx))
                 && (holds(&playlist.name, query) || holds(&playlist.owner, query))
         })
     }
@@ -139,7 +140,9 @@ impl TableSource for PlaylistSource {
             label: t!("filter-owned"),
             on: self.owned,
         })];
-        if self.downloaded || !Sonora::global(cx).downloads.read(cx).is_empty() {
+        // Offline mode already keeps the shelf to its downloads, so the filter would do nothing.
+        let offered = self.downloaded || !Sonora::global(cx).downloads.read(cx).is_empty();
+        if offered && !Network::downloads_only(self.shelf, cx) {
             axes.push(Filter::Flag(FlagAxis {
                 key: "filter-downloaded",
                 label: t!("filter-downloaded"),
@@ -182,7 +185,7 @@ impl TableSource for PlaylistSource {
     fn is_loading(&self, cx: &App) -> bool {
         self.library
             .read(cx)
-            .loading(self.shelf, LibraryPart::Playlists)
+            .waiting(self.shelf, LibraryPart::Playlists, cx)
     }
 
     fn pin(&self, row: usize, cx: &App) -> Option<Pin> {

@@ -62,7 +62,7 @@ pub use network::{Network, Reconnected};
 pub use outputs::Outputs;
 pub use overload::OutputLevel;
 pub use pins::{PinSort, Pins};
-pub use playback::{Origin, Playback, PlaybackState, Repeat, Sleep, Whence};
+pub use playback::{Origin, Playback, PlaybackState, Repeat, Sleep, Unreachable, Whence};
 pub use profile::Profile;
 pub use queue::{Named, Queue, Resume, Stub};
 pub use remote::{Remote, attach as attach_remote};
@@ -241,7 +241,7 @@ pub fn init(
     );
     let session =
         cx.new(|cx| Session::new(providers, local_provider, settings.clone(), io.clone(), cx));
-    let network = cx.new(|_| Network::new(session.clone(), io.clone()));
+    let network = cx.new(|cx| Network::new(session.clone(), settings.clone(), io.clone(), cx));
     // A run that started without a network never signed out, so the account it kept is tried
     // again the moment there is one.
     session.update(cx, |_, cx| {

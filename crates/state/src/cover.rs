@@ -28,6 +28,7 @@ impl Cover {
             SessionEvent::SignedIn | SessionEvent::Reconnected | SessionEvent::LocalChanged => {
                 this.retry(cx)
             }
+            SessionEvent::WentOffline => {}
         })
         .detach();
 

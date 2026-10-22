@@ -77,6 +77,9 @@ pub enum SessionEvent {
     SignedIn,
     SignedOut,
     Reconnected,
+    /// Offline mode let go of a live account. What was loaded stays, but nothing reaches the
+    /// network until the account signs in again.
+    WentOffline,
     LocalChanged,
 }
 
@@ -443,6 +446,11 @@ impl Session {
 
     fn restore_at(&mut self, index: usize, cx: &mut Context<Self>) {
         self.active = Some(index);
+        // In offline mode the account is not reached at all. Going online tries it again.
+        if self.settings.read(cx).offline_mode() && self.providers[index].stored() {
+            log::info!("session: offline mode is on, carrying on offline");
+            return self.carry_on_offline(offline_mode(), cx);
+        }
         self.state = SessionState::Restoring;
         cx.notify();
 
@@ -744,6 +752,32 @@ impl Session {
             .is_some_and(|index| self.providers[index].stored())
     }
 
+    /// Lets go of the live account when offline mode turns on, leaving the session where a launch
+    /// in offline mode would put it. A sign-in in progress and an account with nothing stored
+    /// are left alone.
+    pub fn go_offline(&mut self, cx: &mut Context<Self>) {
+        let live = matches!(
+            self.state,
+            SessionState::SignedIn(_) | SessionState::Restoring
+        );
+        if !live || !self.stored_active() {
+            return;
+        }
+        log::info!("session: offline mode is on, letting go of the account");
+        self.task = None;
+        self.watch = None;
+        self.reconnect = None;
+        self.reconnecting = false;
+        self.attempt = 0;
+        self.client = None;
+        self.catalog = None;
+        self.shape = Shape::Saved;
+        self.authenticated = false;
+        self.capabilities = Capabilities::NONE;
+        self.carry_on_offline(offline_mode(), cx);
+        cx.emit(SessionEvent::WentOffline);
+    }
+
     /// Tries the stored account again once the network is back, for a run that started without
     /// one. Anything but a run held up by the network is left alone.
     pub fn restore_if_offline(&mut self, cx: &mut Context<Self>) {
@@ -895,6 +929,19 @@ impl Session {
         cx.emit(SessionEvent::Reconnected);
     }
 
+    /// Keeps the stored account without reaching it, so the app runs on what the library kept
+    /// and on the downloads, which still play through an engine built from the stored sign-in
+    /// alone.
+    fn carry_on_offline(&mut self, failure: Failure, cx: &mut Context<Self>) {
+        // A provider may need the runtime to build its offline engine.
+        let _runtime = self.io.handle().enter();
+        self.playback = self
+            .active
+            .and_then(|active| self.providers[active].offline_playback());
+        self.state = SessionState::Offline(failure);
+        cx.notify();
+    }
+
     fn failed(&mut self, error: &Error, cx: &mut Context<Self>) {
         let failure = Failure::new(error);
         Network::failed(&format!("{error:#}"), cx);
@@ -913,15 +960,7 @@ impl Session {
         }
         if restoring && failure.offline() && self.stored_active() {
             log::warn!("session: the account could not be reached, carrying on offline");
-            // Downloads still play, through an engine built from the stored sign-in alone. A
-            // provider may need the runtime to build one.
-            let _runtime = self.io.handle().enter();
-            self.playback = self
-                .active
-                .and_then(|active| self.providers[active].offline_playback());
-            self.state = SessionState::Offline(failure);
-            cx.notify();
-            return;
+            return self.carry_on_offline(failure, cx);
         }
         self.client = None;
         self.catalog = None;
@@ -1118,6 +1157,15 @@ impl Session {
         self.local_capabilities = session.capabilities;
         cx.notify();
         cx.emit(SessionEvent::LocalChanged);
+    }
+}
+
+/// The failure a session kept offline on purpose reports, which reads as a lost network.
+fn offline_mode() -> Failure {
+    Failure {
+        problem: Some(SignInProblem::Network),
+        summary: "offline mode is on".to_owned(),
+        detail: None,
     }
 }
 

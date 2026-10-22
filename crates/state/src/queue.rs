@@ -410,7 +410,10 @@ impl Queue {
     ) -> Self {
         cx.subscribe(&session, |this, _, event, cx| match event {
             SessionEvent::SignedOut => this.purge(cx),
-            SessionEvent::SignedIn | SessionEvent::Reconnected | SessionEvent::LocalChanged => {}
+            SessionEvent::SignedIn
+            | SessionEvent::Reconnected
+            | SessionEvent::WentOffline
+            | SessionEvent::LocalChanged => {}
         })
         .detach();
 

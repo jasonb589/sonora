@@ -251,6 +251,44 @@ pub enum PlaybackState {
     Failed(String),
 }
 
+/// Why a streaming track cannot play while the network is gone. Each reason is the Fluent key
+/// of the toast that says so, and a row that cannot play shows the same words.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Unreachable {
+    /// The track is downloaded, but the named provider opens its downloads only online, as
+    /// Apple Music does.
+    Download(SharedString),
+    /// Offline mode keeps Sonora from streaming.
+    OfflineMode,
+    /// The network is gone.
+    Offline,
+}
+
+impl Unreachable {
+    pub fn key(&self) -> &'static str {
+        match self {
+            Self::Download(_) => "toast-offline-unsupported",
+            Self::OfflineMode => "toast-offline-mode",
+            Self::Offline => "toast-offline",
+        }
+    }
+
+    /// The provider the message names, for the `name` argument of its key.
+    pub fn provider(&self) -> Option<&SharedString> {
+        match self {
+            Self::Download(provider) => Some(provider),
+            Self::OfflineMode | Self::Offline => None,
+        }
+    }
+
+    fn toast(&self, cx: &mut App) {
+        match self.provider() {
+            Some(provider) => Toasts::about(Outcome::Failed, self.key(), provider.clone(), cx),
+            None => Toasts::show(Outcome::Failed, self.key(), cx),
+        }
+    }
+}
+
 /// What other entities hear from `Playback`: history records a start, the sheet closes on an
 /// end, and scrobbling tells the provider about every pause and seek.
 pub enum PlaybackEvent {
@@ -527,6 +565,13 @@ impl Playback {
                 this.rebind(playback, cx);
             }
             SessionEvent::SignedOut => this.teardown(cx),
+            // The online engine gives way to the one that plays downloads, picking the current
+            // track up where it was. A provider with none stops streaming altogether.
+            SessionEvent::WentOffline => match session.read(cx).playback() {
+                Some(playback) if this.local_active() => this.start_engine(playback, cx),
+                Some(playback) => this.rebind(playback, cx),
+                None => this.teardown(cx),
+            },
             SessionEvent::LocalChanged => {
                 if this.local_engine.is_none()
                     && let Some(playback) = session.read(cx).local_playback()
@@ -863,8 +908,8 @@ impl Playback {
         if !track.playable {
             return self.failed(format!("{} is not available to stream", track.name), cx);
         }
-        if !is_local && Network::lost(cx) && !self.plays_offline(&id, cx) {
-            return self.unreachable(&id, start, cx);
+        if let Some(reason) = self.reason(&id, cx) {
+            return Self::unreachable(reason, start, cx);
         }
         if self.engine_for(&id).is_none() {
             return;
@@ -976,7 +1021,7 @@ impl Playback {
         let playable = tracks
             .iter()
             .enumerate()
-            .filter(|(_, track)| track.playable)
+            .filter(|(_, track)| track.playable && self.unreachable_reason(track, cx).is_none())
             .map(|(index, _)| index)
             .collect::<Vec<_>>();
         match self.queue.read(cx).shuffle() {
@@ -1489,7 +1534,8 @@ impl Playback {
 
     /// Hands a fetched collection to the queue, every track tagged with `origin`, and plays the
     /// chosen one. While another device has playback it starts the track there instead and leaves
-    /// the queue alone, which is when this returns `false`.
+    /// the queue alone, which is when this returns `false`. A chosen track that cannot play here
+    /// while the network is gone leaves the queue alone too, and says why.
     fn begin(
         &mut self,
         tracks: Vec<Track>,
@@ -1498,6 +1544,14 @@ impl Playback {
         cx: &mut Context<Self>,
     ) -> bool {
         if self.hand_over(&tracks, index, origin.as_ref(), cx) {
+            return false;
+        }
+        // A track that cannot play here leaves the queue and whatever plays as they were.
+        if let Some(reason) = tracks
+            .get(index)
+            .and_then(|track| self.unreachable_reason(track, cx))
+        {
+            Self::unreachable(reason, Start::Pick, cx);
             return false;
         }
         let Some(track) = self
@@ -3088,24 +3142,32 @@ impl Playback {
 
     /// Turns down a track that has to be streamed while the network is gone. Whatever plays
     /// keeps playing, since a local file needs nothing, and only a track the user picked says
-    /// so out loud: the queue moving on by itself would otherwise toast once a track. A download
-    /// that still needs the network, as Apple Music's do, says why instead.
-    fn unreachable(&mut self, id: &str, start: Start, cx: &mut Context<Self>) {
+    /// so out loud: the queue moving on by itself would otherwise toast once a track.
+    fn unreachable(reason: Unreachable, start: Start, cx: &mut App) {
         log::warn!("playback: nothing streams while the network is gone");
-        if start != Start::Pick {
-            return;
+        if start == Start::Pick {
+            reason.toast(cx);
         }
-        match crate::downloads::downloaded(id, cx) {
+    }
+
+    /// Why `track` cannot play here while the network is gone, or `None` when it can. A local
+    /// file and a download the provider opens offline always play.
+    pub fn unreachable_reason(&self, track: &Track, cx: &App) -> Option<Unreachable> {
+        self.reason(track.id.as_deref()?, cx)
+    }
+
+    fn reason(&self, id: &str, cx: &App) -> Option<Unreachable> {
+        if music::is_local_id(id) || !Network::lost(cx) || self.plays_offline(id, cx) {
+            return None;
+        }
+        Some(match crate::downloads::downloaded(id, cx) {
             true => {
-                let provider = self
-                    .session
-                    .read(cx)
-                    .provider_name()
-                    .unwrap_or("this provider");
-                Toasts::about(Outcome::Failed, "toast-offline-unsupported", provider, cx);
+                let provider = self.session.read(cx).provider_name();
+                Unreachable::Download(provider.unwrap_or("this provider").to_owned().into())
             }
-            false => Toasts::show(Outcome::Failed, "toast-offline", cx),
-        }
+            false if Network::offline(cx) => Unreachable::OfflineMode,
+            false => Unreachable::Offline,
+        })
     }
 
     /// Records that the provider wants a signed-in listener and stops until sign-in.

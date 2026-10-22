@@ -8,7 +8,9 @@ use music::{
 };
 use tokio::task::AbortHandle;
 
-use crate::{Io, Library, LibraryEvent, Session, SessionEvent, Sonora, join, mosaic};
+use crate::{
+    Io, Library, LibraryEvent, Network, Session, SessionEvent, SessionState, Sonora, join, mosaic,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Collection {
@@ -88,7 +90,7 @@ impl Detail {
                     }
                 }
             }
-            SessionEvent::Reconnected => {}
+            SessionEvent::Reconnected | SessionEvent::WentOffline => {}
             SessionEvent::LocalChanged => {
                 if let (Some(kind), Some(id)) = (
                     this.kind,
@@ -100,6 +102,17 @@ impl Detail {
                         Collection::Playlist => this.open_playlist(&id, cx),
                     }
                 }
+            }
+        })
+        .detach();
+
+        // A page that opened while the account was still signing back in waits for it. Once the
+        // session settles anywhere but signed in, there is nothing coming to wait for.
+        cx.observe(&session, |this, session, cx| {
+            let restoring = matches!(session.read(cx).state(), SessionState::Restoring);
+            if this.loading && this.task.is_none() && !restoring {
+                this.loading = false;
+                cx.notify();
             }
         })
         .detach();
@@ -382,10 +395,16 @@ impl Detail {
         self.kind = Some(kind);
         self.header = known;
 
-        let Some(catalog) = self.session.read(cx).catalog(id) else {
+        // With no network, or none allowed, a downloaded page opens from its kept copy.
+        let offline = Network::lost(cx) && !music::is_local_id(id);
+        let catalog = self.session.read(cx).catalog(id).filter(|_| !offline);
+        let Some(catalog) = catalog else {
             if let Some(kept) = kept(kind, id, cx) {
                 self.adopt(kept, cx);
             }
+            // Signing back in reopens the page, so until then it reads as loading.
+            let restoring = matches!(self.session.read(cx).state(), SessionState::Restoring);
+            self.loading = restoring && !offline && self.tracks.is_empty();
             cx.notify();
             return true;
         };

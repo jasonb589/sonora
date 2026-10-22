@@ -1026,6 +1026,8 @@ settings-cache-used-detail = 播放过后保留在本机的歌曲所占空间。
 settings-cache-clear = 清除
 settings-downloads-used = 已用空间
 settings-downloads-used-detail = 你下载的歌曲在本机占用的空间
+settings-offline-mode = 离线模式
+settings-offline-mode-detail = 只显示和播放你已下载的内容
 settings-downloads-remove = 全部移除
 settings-size-gb = { $size } GB
 settings-size-mb = { $size } MB
@@ -1277,7 +1279,10 @@ toast-jam-left = 你已离开一起听
 toast-jam-leave-failed = 一起听无法结束或离开。
 
 # trouble
-toast-offline-unsupported = { $name } 不支持离线播放，所以它的下载只有联网时才能播放。
+toast-offline-unsupported = { $name } 只能在线播放已下载的内容。
+toast-offline-mode = 你处于离线状态，联网后才能播放这首歌曲。
+offline-title = 你现在处于离线状态。
+offline-go-online = 连接网络
 toast-download-failed = 无法列出要下载的歌曲。
 toast-downloading = 正在下载 { $name }
 toast-downloading-songs = { $count ->

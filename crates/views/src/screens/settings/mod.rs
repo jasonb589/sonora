@@ -96,6 +96,7 @@ enum Slot {
     CacheSize,
     CacheUsage,
     DownloadsUsage,
+    OfflineMode,
     Sleep,
     StayAwake,
     StreamQuality,
@@ -779,6 +780,10 @@ impl SettingsView {
                 t!("settings-downloads-used"),
                 t!("settings-downloads-used-detail"),
             ),
+            Slot::OfflineMode => (
+                t!("settings-offline-mode"),
+                t!("settings-offline-mode-detail"),
+            ),
             Slot::StreamQuality => (
                 t!("settings-stream-quality"),
                 t!("settings-stream-quality-detail"),
@@ -942,6 +947,7 @@ impl SettingsView {
             Slot::CacheSize => self.cache_size_row(cx),
             Slot::CacheUsage => self.cache_usage_row(cx),
             Slot::DownloadsUsage => self.downloads_usage_row(cx),
+            Slot::OfflineMode => self.offline_mode_row(cx),
             Slot::StreamQuality => self.stream_quality_row(cx),
             Slot::StreamFormat => self.stream_format_row(cx),
             Slot::StreamBitrate => self.stream_bitrate_row(cx),
