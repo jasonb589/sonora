@@ -864,6 +864,7 @@ impl ArtistView {
 
         Some(
             div()
+                .id("artist-about")
                 .pb_6()
                 .min_w_0()
                 .cursor_pointer()
