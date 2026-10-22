@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use gpui::{Context, Entity, EventEmitter, Task};
-use music::{Album, Artist, ArtistCatalogue, Track};
+use music::{Album, Artist, ArtistCatalogue, ArtistProfile, Track};
 use tokio::task::AbortHandle;
 
 use crate::{Io, Library, LibraryEvent, Session, SessionEvent, join};
@@ -24,6 +24,10 @@ pub struct ArtistDetail {
     filling: bool,
     fill: Option<Task<()>>,
     filling_request: Option<AbortHandle>,
+    /// The photograph and listener count a public catalogue adds, once they arrive.
+    portrait: Option<ArtistProfile>,
+    portrait_asked: bool,
+    portrait_task: Option<Task<()>>,
 }
 
 impl EventEmitter<ArtistDetailEvent> for ArtistDetail {}
@@ -88,6 +92,9 @@ impl ArtistDetail {
             filling: false,
             fill: None,
             filling_request: None,
+            portrait: None,
+            portrait_asked: false,
+            portrait_task: None,
         }
     }
 
@@ -116,6 +123,12 @@ impl ArtistDetail {
     /// What the artist guests on, filled in behind the overview.
     pub fn appears_on(&self) -> &[Album] {
         &self.appears_on
+    }
+
+    /// What the public catalogue knows that the server did not: a photograph of the artist and how
+    /// many listeners they have, once one could be found.
+    pub fn profile(&self) -> Option<&ArtistProfile> {
+        self.portrait.as_ref()
     }
 
     pub fn is_loading(&self) -> bool {
@@ -209,6 +222,8 @@ impl ArtistDetail {
         let Some(artist) = self.artist.clone() else {
             return;
         };
+
+        self.portrait_of(&artist.name, cx);
         let Some(catalog) = self.session.read(cx).catalog(id) else {
             return;
         };
@@ -266,6 +281,31 @@ impl ArtistDetail {
         }
     }
 
+    /// Asks the public catalogue for a photograph of the artist and their listener count. A server
+    /// with only sleeves to hand answers the hero with one of those, and the page wants a face.
+    fn portrait_of(&mut self, name: &str, cx: &mut Context<Self>) {
+        if self.portrait_asked {
+            return;
+        }
+        self.portrait_asked = true;
+        let wanted = name.to_owned();
+        let logged = wanted.clone();
+        let search = music::artist_profile::ArtistProfileSearch::new();
+        let request = self.io.spawn(async move { search.find(&wanted).await });
+        self.portrait_task = Some(cx.spawn(async move |this, cx| {
+            let found = join(request).await;
+            this.update(cx, |this, cx| match found {
+                Ok(Some(profile)) => {
+                    this.portrait = Some(profile);
+                    cx.notify();
+                }
+                Ok(None) => log::debug!("artist: no photograph for {logged}"),
+                Err(error) => log::debug!("artist: cannot look for a photograph: {error:#}"),
+            })
+            .ok();
+        }));
+    }
+
     fn clear(&mut self) {
         self.task = None;
         self.fill = None;
@@ -281,5 +321,8 @@ impl ArtistDetail {
         self.loading = false;
         self.filling = false;
         self.error = None;
+        self.portrait = None;
+        self.portrait_asked = false;
+        self.portrait_task = None;
     }
 }

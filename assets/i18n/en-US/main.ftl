@@ -329,6 +329,7 @@ play-resume = Resume
 play-shuffle = Shuffle
 
 # artist page
+artist-fans = { $value } fans
 artist-eyebrow = Artist
 artist-monthly-listeners = { $count ->
     [one] { $value } monthly listener

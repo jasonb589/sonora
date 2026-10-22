@@ -332,6 +332,7 @@ play-resume = 继续播放
 play-shuffle = 随机播放
 
 # artist page
+artist-fans = { $value } 粉丝
 artist-eyebrow = 歌手
 artist-monthly-listeners = { $count ->
     [one] { $value } 位每月听众

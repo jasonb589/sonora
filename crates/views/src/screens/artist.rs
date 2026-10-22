@@ -282,6 +282,15 @@ impl ArtistView {
                 let value = cells::count(count);
                 t!("artist-monthly-listeners", count = count, value = &value)
             });
+        let fans = self
+            .detail
+            .read(cx)
+            .profile()
+            .and_then(|profile| profile.fans)
+            .map(|count| {
+                let value = cells::count(count);
+                t!("artist-fans", count = count, value = &value)
+            });
         let overflow = self.saved_artist(cx).map(|artist| {
             Picker::icon("artist-overflow", &self.popovers, "icons/ellipsis.svg")
                 .tooltip("common-more")
@@ -313,7 +322,12 @@ impl ArtistView {
             .children(self.favorite_button(cx))
             .children(overflow);
 
-        let cover = artist.and_then(|artist| artist.cover_large.clone());
+        let portrait = self
+            .detail
+            .read(cx)
+            .profile()
+            .and_then(|profile| profile.image.clone());
+        let cover = portrait.or_else(|| artist.and_then(|artist| artist.cover_large.clone()));
         let pin = self
             .detail
             .read(cx)
@@ -324,8 +338,15 @@ impl ArtistView {
             .pin(pin)
             .cover(cover)
             .eyebrow(t!("artist-eyebrow"))
-            .when_some(listeners, |hero, listeners| {
-                hero.meta(HeroMetaStrip::new().text(listeners))
+            .when(listeners.is_some() || fans.is_some(), |hero| {
+                let mut strip = HeroMetaStrip::new();
+                if let Some(text) = listeners.clone() {
+                    strip = strip.text(text);
+                }
+                if let Some(text) = fans.clone() {
+                    strip = strip.text(text);
+                }
+                hero.meta(strip)
             })
             .actions(actions)
             .circle()
