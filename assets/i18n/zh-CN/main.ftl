@@ -873,3 +873,486 @@ toast-offline = 无网络连接。恢复之前无法串流播放。
 toast-settings-broken = 请修复 settings.json 第 { $name } 行后再保存更改
 toast-tray-unavailable = 没有可放置图标的系统托盘
 wake-reason = 正在播放音乐
+
+
+# app menu
+app-refresh = 刷新
+
+# track menu
+menu-download = 下载
+menu-download-tracks = { $count ->
+    [one] 下载 { $count } 首歌曲
+   *[other] 下载 { $count } 首歌曲
+}
+menu-remove-download = 移除下载
+menu-remove-downloads = { $count ->
+    [one] 移除 { $count } 个下载
+   *[other] 移除 { $count } 个下载
+}
+menu-downloading = 正在下载，点击可停止
+
+# queue panel
+queue-added-by = 由 { $name } 添加
+
+# player bar
+player-devices = 设备
+devices-this-computer = 这台电脑
+devices-pause = 暂停
+devices-resume = 继续播放
+devices-jam-join = 加入一起听…
+devices-jam-join-title = 加入一起听
+devices-jam-join-detail = 粘贴朋友分享给你的链接
+devices-jam-paste = 粘贴
+devices-jam-link-hint = 一起听链接
+devices-jam-start = 发起一起听
+devices-jam-copy = 复制一起听链接
+devices-jam-code = 二维码
+devices-jam-code-menu = 显示二维码
+devices-jam-code-title = 扫码加入 { $host } 的一起听
+devices-jam-code-title-anonymous = 扫码加入一起听
+devices-jam-code-close = 关闭
+devices-jam-leave = 离开一起听
+devices-jam-end = 结束一起听
+devices-jam-banner = 正在 { $host } 的一起听中
+devices-jam-banner-anonymous = 正在一起听中
+devices-jam-more = +{ $count }
+devices-jam-host = 主持人
+devices-jam-you = 你
+devices-jam-remove = 移除
+devices-jam-invite-title = 加入 { $host } 的一起听？
+devices-jam-invite-title-anonymous = 加入这个一起听？
+devices-jam-invite-detail = { $count ->
+    [one] 已有 { $count } 人在这个一起听中。
+   *[other] 已有 { $count } 人在这个一起听中。
+}
+devices-jam-invite-join = 加入
+devices-elsewhere-banner = 正在 { $device } 上播放
+devices-elsewhere-here = 在此播放
+
+# filters
+filter-hide-explicit = 隐藏露骨内容
+filter-downloaded = 已下载
+
+# settings
+settings-search-results = 搜索结果
+settings-result-place = { $parent } › { $page }
+settings-page-providers = 服务
+settings-page-appearance = 外观
+settings-page-player-bar = 播放栏
+settings-player-bar-layout = 布局
+settings-player-bar-layout-detail = 排列曲目信息、播放控制和进度条
+settings-player-bar-classic = 经典
+settings-player-bar-compact = 紧凑
+settings-player-bar-centered = 居中
+settings-player-bar-surface = 底色
+settings-player-bar-transparent = 透明播放栏
+settings-player-bar-transparent-detail = 让页面和侧边栏从磨砂播放栏下方滚过
+settings-player-bar-transparent-needs-blur = 开启「模糊界面」后，页面才能从磨砂播放栏下方滚过
+settings-page-now-playing = 正在播放
+settings-page-lyrics = 歌词
+settings-page-playback = 播放
+settings-page-sound = 声音
+settings-page-storage = 存储
+settings-page-discord = Discord
+settings-page-scrobbling = 记录播放
+settings-page-general = 通用
+settings-page-about = 关于
+settings-about-name = Sonora
+settings-page-lyrics-sources = 歌词来源
+settings-page-music-folders = 音乐文件夹
+settings-group-services = 流媒体服务
+settings-group-local-files = 本地文件
+settings-group-background = 背景
+settings-group-controls = 控制
+settings-group-display = 显示
+settings-group-sources = 来源
+settings-group-lyrics-order = 优先级
+settings-group-playing = 播放中
+settings-group-cache = 播放过的歌曲
+settings-group-downloads = 下载
+settings-group-protected = 受保护的播放
+settings-group-output = 输出
+settings-group-status = 状态
+settings-group-startup = 启动
+settings-group-context-menus = 右键菜单
+
+key-ctrl = Ctrl
+key-super = Super
+key-alt = Alt
+key-shift = Shift
+key-escape = Esc
+key-enter = Enter
+key-space = 空格
+key-tab = Tab
+key-backspace = 退格
+key-delete = Delete
+
+settings-lyrics-sources = 歌词来源
+settings-local-folder-count = { $count ->
+    [one] { $count } 个文件夹
+   *[other] { $count } 个文件夹
+}
+settings-local-folder-none = 还没有文件夹
+settings-license-short = GPL-3.0 或更高版本
+settings-preview-title = 歌曲标题
+settings-preview-artist = 歌手
+settings-preview-album = 专辑
+settings-spotify-connect = 在 Spotify 中显示为播放设备
+settings-spotify-connect-name = 设备名称
+settings-spotify-connect-name-detail = Sonora 在 Spotify 应用的设备列表里如何显示
+settings-spotify-connect-name-sonora = Sonora
+settings-spotify-connect-name-both = Sonora（电脑名称）
+settings-spotify-connect-name-computer = 电脑名称
+settings-spotify-connect-name-custom = 自定义
+settings-spotify-connect-custom = 自定义名称
+settings-spotify-connect-custom-detail = 要显示的名称。留空则使用 Sonora 和电脑名称
+settings-spotify-connect-custom-hint = 设备名称
+settings-spotify-connect-detail = 让 Sonora 出现在 Spotify 应用的设备选择里，这样可以用手机控制它，Spotify 也会显示你在听什么
+settings-discord-hide-on-connect = 使用 Spotify Connect 时隐藏
+settings-discord-hide-on-connect-detail = 当 Sonora 作为 Spotify 设备播放、或由其他设备播放时，把状态留给 Spotify 自己
+settings-discord-preview-listening = 正在听 { $name }
+settings-discord-preview-music = 音乐
+settings-discord-preview-elapsed = 已播放 { $time }
+settings-discord-preview-listen-on = 在 { $provider } 上收听
+
+# the Discord status when the track is left out of it
+settings-keep-tracks = 保留播放过的歌曲
+settings-keep-tracks-detail = 保存你播放过的内容，仅限这台电脑，再次播放时无需重新下载。关闭会删除这些内容，但不影响你的下载。Spotify 会在下次启动 Sonora 时跟随更改
+settings-cache-size = 缓存大小
+settings-cache-size-detail = 播放过的歌曲最多可占用的空间。最久未播放的会先腾出空间，下载不计入其中
+settings-cache-size-value = { $count } GB
+settings-cache-used = 已用空间
+settings-cache-used-detail = 播放过后保留在本机的歌曲所占空间。清除它们不影响你的下载
+settings-cache-clear = 清除
+settings-downloads-used = 已用空间
+settings-downloads-used-detail = 你下载的歌曲在本机占用的空间
+settings-downloads-remove = 全部移除
+settings-size-gb = { $size } GB
+settings-size-mb = { $size } MB
+settings-size-measuring = 正在计算…
+settings-stream-quality = 流媒体音质
+settings-stream-quality-detail = 更高的音质更好听，也更费流量。当你的套餐或曲目不提供该音质时，会播放下一档
+settings-stream-quality-hi-res = 高解析
+settings-stream-quality-lossless = 无损
+settings-stream-quality-high = 高
+
+settings-stream-quality-normal = 标准
+settings-stream-quality-low = 低
+settings-stream-quality-flac = FLAC，{ $depth } 位 { $rate } kHz
+settings-stream-quality-flac-up-to = FLAC，最高 { $depth } 位 { $rate } kHz
+settings-stream-quality-lossy = { $codec }，{ $kbps } kbps
+settings-stream-quality-lossy-up-to = { $codec }，最高 { $kbps } kbps
+settings-stream-format = 流媒体格式
+settings-stream-format-detail = 服务器发送前把每首歌曲转换成的格式
+settings-stream-format-original = 原始
+settings-stream-format-mp3 = MP3
+settings-stream-format-opus = Opus
+settings-stream-format-aac = AAC
+settings-stream-bitrate = 最大码率
+settings-stream-bitrate-detail = 服务器会把高于此码率的歌曲转到这个码率
+settings-stream-bitrate-unlimited = 不限制
+settings-stream-bitrate-value = { $kbps } kbps
+settings-stream-bitrate-hourly = 每小时约 { $megabytes } MB
+settings-stream-bitrate-unlimited-detail = 每个文件保持自己的码率
+settings-output-device = 输出设备
+settings-output-device-detail = Sonora 播放所用的音频设备
+settings-output-device-system = 系统默认
+settings-output-device-missing = 已保存的设备（未连接）
+settings-output-device-direct = 直接输出到硬件
+settings-sample-rate = 采样率
+settings-sample-rate-detail = 设备运行的采样率，Sonora 会把每首歌曲转换到它
+settings-sample-rate-value = { $khz } kHz
+settings-sample-rate-change = 更改
+settings-buffer = 缓冲区大小
+settings-buffer-detail = Sonora 每次交给设备的音频长度
+settings-output-idle = 未播放
+settings-output-device-loading = 正在加载设备…
+settings-output-failed = 设备不受支持
+settings-output-failed-detail = 错误：{ $error }
+settings-signal-source = 来源
+settings-signal-normalized = 响度
+settings-signal-gain = { $db } dB
+settings-signal-resampled = 重采样
+settings-signal-khz = { $khz } kHz
+settings-signal-kbps = { $kbps } kbps
+settings-signal-bits = { $depth } 位
+settings-signal-source-detail = { $rate } · { $quality }
+confirm-remove-downloads-title = 移除全部下载？
+confirm-remove-downloads = 你下载的所有歌曲都会从这台电脑上删除，包括每个服务下的。在你重新下载之前，它们会改为在线播放。
+equalizer-advanced = 高级
+equalizer-simple = 简单
+equalizer-sound = 声音
+equalizer-profile-default = 默认
+equalizer-profile-new = 配置 { $number }
+equalizer-profile-pasted = 粘贴的配置
+equalizer-profile-name-hint = 配置名称
+equalizer-save-as = 另存为配置
+equalizer-rename = 重命名配置
+equalizer-delete = 删除配置
+equalizer-delete-confirm = 删除“{ $name }”？此操作无法撤销。
+equalizer-undo = 撤销
+equalizer-redo = 重做
+equalizer-bass = 低频
+equalizer-treble = 高频
+equalizer-tone-reset = 重置为 0 dB
+equalizer-preamp = 前置增益
+equalizer-preamp-auto = 自动
+equalizer-preamp-manual = 手动
+equalizer-decibels = dB
+equalizer-decibels-value = { $db } dB
+equalizer-hertz = Hz
+equalizer-q = Q
+equalizer-octaves = 倍频程
+equalizer-no-gain = —
+equalizer-filters = 滤波器
+equalizer-no-filters = 还没有滤波器。添加一个、选用上面的预设，或导入一份配置。
+equalizer-add-filter = 添加滤波器
+equalizer-remove-filter = 移除滤波器
+equalizer-kind-peak = 峰值
+equalizer-kind-low-shelf = 低架
+equalizer-kind-high-shelf = 高架
+equalizer-kind-low-pass = 低通
+equalizer-kind-high-pass = 高通
+equalizer-kind-notch = 陷波
+equalizer-kind-band-pass = 带通
+equalizer-kind-all-pass = 全通
+equalizer-transfer = 导入与导出
+equalizer-import = 导入
+equalizer-export = 导出
+equalizer-import-file = 导入文件…
+equalizer-paste = 粘贴
+equalizer-copy = 复制
+equalizer-export-file = 导出文件…
+equalizer-imported = 已导入 { $name }
+equalizer-imported-skipped = 已导入 { $name }，但忽略了 { $count ->
+            [one] 一行
+           *[other] { $count } 行
+        }
+equalizer-import-nothing = 没有找到可导入的均衡器设置
+equalizer-import-too-many = 未导入：已启用 { $count ->
+            [one] 一个滤波器
+           *[other] { $count } 个滤波器
+        }，超过一份配置能容纳的数量
+equalizer-import-too-large = 未导入：文本超过 1 MB，对均衡器配置来说太大
+equalizer-filter-limit = 一份配置最多包含 { $max } 个滤波器。
+equalizer-paste-empty = 剪贴板里没有文本
+equalizer-copied = 已把配置复制为 Equalizer APO 文本
+equalizer-exported = 已导出配置
+equalizer-dialog-failed = 无法打开文件对话框
+equalizer-file-unreadable = 无法读取文件
+equalizer-file-unwritable = 无法写入文件
+equalizer-value-refused = 保留了原来的值
+equalizer-skipped-line = 第 { $line } 行：{ $reason }
+equalizer-skipped-more = 还有 { $count ->
+            [one] 一行
+           *[other] { $count } 行
+        }
+equalizer-skip-unknown-type = 未知的滤波器类型 { $name }
+equalizer-skip-unreadable = 不是 Sonora 能识别的滤波器
+equalizer-skip-no-frequency = 没有频率
+equalizer-skip-no-gain = 没有增益
+equalizer-skip-no-width = 没有 Q 或带宽
+equalizer-skip-expression = 用表达式写的值
+equalizer-skip-no-preamp = 前置增益不是数字
+equalizer-skip-unsupported = 不支持 { $name }
+equalizer-rules = 设备规则
+equalizer-rule-other = 其他设备
+equalizer-rule-playing = 当前播放
+equalizer-rule-disconnected = 未连接
+equalizer-rule-replaces = 替代它的规则
+equalizer-rule-choose-device = 选择设备
+equalizer-rule-choose-sound = 选择声音
+equalizer-rule-add = 添加规则
+equalizer-rule-remove = 移除规则
+equalizer-output-port = { $device } · { $port }
+signal-path-codec-alac = ALAC
+signal-path-codec-pcm = PCM
+signal-path-codec-other = 其他编码
+equalizer-invalid-frequency = 频率必须在 { $low } 到 { $high } Hz 之间
+equalizer-invalid-gain = 增益必须在 { $low } 到 { $high } dB 之间
+equalizer-invalid-q = Q 必须在 { $low } 到 { $high } 之间
+equalizer-invalid-octaves = 带宽必须在 { $low } 到 { $high } 倍频程之间
+equalizer-invalid-shelf-octaves = 架式滤波器使用 Q，而不是带宽
+equalizer-invalid-preamp = 前置增益必须在 { $low } 到 { $high } dB 之间
+equalizer-overload = 削波 { $db } dB
+equalizer-overload-slight = 削波不到 0.1 dB
+equalizer-graph-preamp = { $db } dB
+equalizer-lower-preamp = 降低前置增益
+equalizer-level = 电平
+equalizer-status-bit-perfect = 位完美
+equalizer-status-bit-perfect-detail = 从 Sonora 起就是位完美
+equalizer-status-server = 之后由声音服务器转换到 { $khz } kHz
+equalizer-status-altered = 非位完美，原因：
+equalizer-status-separator = { "、" }
+equalizer-status-more = +{ $count }
+equalizer-status-equalized = EQ
+
+equalizer-status-volume = 音量
+equalizer-status-normalized = 已做响度归一
+equalizer-status-rate = { $from } → { $to } kHz
+equalizer-status-bits = { $from } → { $to } 位
+equalizer-status-float = 浮点 → { $to } 位
+equalizer-status-channels = { $from ->
+        [1] 单声道
+        [2] 立体声
+       *[other] { $from } 声道
+    }
+settings-lyrics-sample-first = 任意数据
+settings-lyrics-sample-second = 在这里放入有趣的文字
+settings-lyrics-sample-japanese = ここに面白い文章を入れてください
+settings-lyrics-sample-romanized = koko ni omoshiroi bunshou o irete kudasai
+settings-lyrics-sample-fourth = 希望这句日文没错
+settings-lyrics-sample-fifth = 第五行
+settings-lyrics-priority = 提供方优先级
+settings-lyrics-priority-detail = 同类型的歌词中，Sonora 优先显示排在更前面的来源
+settings-group-streaming = 在线流媒体
+settings-group-spotify-connect = Spotify Connect
+settings-provider-sign-in = 登录
+
+# motion
+saver-fps = { $fps } FPS
+toast-track-removed-unnamed = 已从播放列表中移除
+toast-queue-local-elsewhere = 本地文件无法加入其他设备的队列
+toast-queued-tracks = 已将 { $count } 首歌曲加入播放队列
+toast-next-tracks = { $count } 首歌曲将接着播放
+toast-last-tracks = { $count } 首歌曲将在最后播放
+toast-queue-cleared = 播放队列已清空
+toast-queue-removed-track = 已从播放队列中移除 { $name }
+toast-queue-removed-tracks = 已从播放队列中移除 { $count } 首歌曲
+toast-sleep-ended = 定时停止已结束
+toast-radio-failed = 无法为 { $name } 启动电台
+toast-similar-failed = 找不到与 { $name } 相似的歌曲
+toast-open-failed = 无法打开 { $name }
+toast-open-unsupported = { $name } 不是 Sonora 能播放的音频文件
+toast-open-all-failed = { $count } 个文件无法打开
+toast-open-some-failed = 部分文件无法打开
+toast-restore-failed = { $name } 无法重新登录，Sonora 已跳过它继续运行
+toast-widevine-failed = 播放失败
+toast-widevine-borrowed = 请尝试更新 Widevine
+toast-open-settings = 设置
+toast-library-removed-one = 已从你的音乐库中移除 { $name }
+toast-library-songs-removed = 已从你的音乐库中移除 { $count ->
+            [one] 一首歌曲
+           *[other] { $count } 首歌曲
+        }
+toast-library-albums-removed = 已从你的音乐库中移除 { $count ->
+            [one] 一张专辑
+           *[other] { $count } 张专辑
+        }
+toast-playlists-removed = 已从你的音乐库中移除 { $count ->
+            [one] 一个播放列表
+           *[other] { $count } 个播放列表
+        }
+toast-favorite-removed = 已从收藏中移除 { $name }
+toast-favorite-songs-removed = 已从收藏中移除 { $count ->
+            [one] 一首歌曲
+           *[other] { $count } 首歌曲
+        }
+toast-favorite-albums-removed = 已从收藏中移除 { $count ->
+            [one] 一张专辑
+           *[other] { $count } 张专辑
+        }
+toast-favorite-artists-removed = 已从收藏中移除 { $count ->
+            [one] 一位歌手
+           *[other] { $count } 位歌手
+        }
+toast-tracks-removed = 已从 { $name } 中移除 { $count ->
+            [one] 一首歌曲
+           *[other] { $count } 首歌曲
+        }
+toast-tracks-removed-unnamed = 已从播放列表中移除 { $count ->
+            [one] 一首歌曲
+           *[other] { $count } 首歌曲
+        }
+toast-unpinned = 已取消固定 { $name }
+
+# tags
+toast-output-select-failed = 无法选择 { $name }
+toast-output-default-failed = 无法选择系统默认设备
+toast-jam-unreadable = 这个链接指向的一起听无法加入。
+toast-jam-needs-connect = 请在设置里打开「在 Spotify 中显示为播放设备」后加入一起听
+toast-jam-failed = 一起听无法启动或加入。
+toast-jam-ended = 一起听已结束
+toast-jam-left = 你已离开一起听
+toast-jam-leave-failed = 一起听无法结束或离开。
+
+# trouble
+toast-offline-unsupported = { $name } 不支持离线播放，所以它的下载只有联网时才能播放。
+toast-download-failed = 无法列出要下载的歌曲。
+toast-downloading = 正在下载 { $name }
+toast-downloading-songs = { $count ->
+        [one] 正在下载 { $count } 首歌曲
+       *[other] 正在下载 { $count } 首歌曲
+}
+toast-downloaded = 已下载 { $name }
+toast-downloaded-songs = { $count ->
+        [one] 已下载 { $count } 首歌曲
+       *[other] 已下载 { $count } 首歌曲
+}
+toast-download-set-failed = { $name } 的部分歌曲无法下载
+toast-download-song-failed = { $name } 无法下载
+toast-download-songs-failed = 部分歌曲无法下载
+toast-percent = { $percent }%
+toast-download-cancelled = 已取消下载 { $name }
+toast-downloads-cancelled = { $count ->
+        [one] 已取消下载 { $count } 首歌曲
+       *[other] 已取消下载 { $count } 首歌曲
+}
+toast-undo = 撤销
+toast-link-copied = 链接已复制
+toast-link-sign-in = 登录 { $name } 后即可打开此链接
+toast-link-unreadable = 这个链接指向的内容 Sonora 无法打开
+toast-code-copied = 代码已复制
+menu-copy-link-none = 这里没有可分享的链接
+menu-copy-link-local = 本地歌手和播放列表没有链接
+toast-settings-save-failed = 设置无法保存
+toast-settings-overwritten = settings.json 在磁盘上被改动，所以你最后的修改没有保存
+toast-widevine-download-failed = Widevine 无法下载
+toast-widevine-install-failed = Widevine 无法安装
+toast-widevine-remove-failed = Widevine 无法移除
+toast-library-scanned = { $count ->
+        [one] 音乐库扫描完成，找到一首歌曲
+       *[other] 音乐库扫描完成，找到 { $count } 首歌曲
+}
+toast-scan-failed = 无法扫描你的音乐文件夹
+toast-folder-removed = 已移除 { $name }
+toast-folder-missing = { $name } 已不在磁盘上
+toast-history-removed = { $count ->
+        [one] 已从历史记录中移除
+       *[other] 已从历史记录中移除 { $count } 首歌曲
+}
+toast-history-remove-failed = 有歌曲无法从历史记录中移除
+toast-history-restore-failed = 历史记录无法恢复
+toast-history-clear-failed = 历史记录无法清空
+
+# power
+toast-sample-plain = 事件已创建
+toast-sample-done = 已保存到你的音乐库
+toast-sample-info = 请提前 10 分钟到达活动现场。
+toast-sample-warning = 你的会话将在五分钟后结束
+toast-sample-failed = 无法连接到服务器
+toast-sample-loading = 正在上传你的歌曲
+toast-sample-event = 事件已创建
+toast-sample-event-detail = 12 月 3 日星期日 上午 9:00
+toast-sample-delete = 已删除 { $name }
+toast-sample-undo = 撤销
+toast-sample-cancel = 取消
+toast-sample-undone = 已撤销
+toast-sample-queued = 已将 { $name } 加入播放队列
+toast-sample-long = 这条提示比其他提示说得更多，所以文字要折到第二行、甚至第三行，同时不能把关闭按钮挤出卡片
+toast-sample-saving = 正在保存 { $name }
+toast-sample-saved = 已保存 { $name }
+toast-sample-save-failed = { $name } 无法保存
+toast-sample-save-failed-detail = 服务器返回 503 服务不可用
+toast-sample-lasting = 这条会一直保留到你关闭它
+toast-sample-burst = 第 { $name } 条提示
+
+# Frequency response graph
+response-graph-hz = { $value } Hz
+response-graph-khz = { $value } kHz
+response-graph-db = { $value } dB
+response-graph-readout = { $frequency } · { $direction ->
+            [up] +{ $gain }
+            [down] -{ $gain }
+           *[flat] { $gain }
+        } dB
