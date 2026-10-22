@@ -449,6 +449,16 @@ impl SongView {
         )
     }
 
+    /// Closes the About the artist dialog when it is open, and says whether it was.
+    pub(crate) fn escape(&mut self, cx: &mut Context<Self>) -> bool {
+        if !self.about_open {
+            return false;
+        }
+        self.about_open = false;
+        cx.notify();
+        true
+    }
+
     fn about_dialog(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
         if !self.about_open {
             return None;
@@ -529,6 +539,7 @@ impl Render for SongView {
             .size_full()
             .child(
                 Scroller::new("song-page", &self.scrollbar)
+                    .bottom_inset(crate::chrome::Chrome::bottom(cx))
                     .px(theme.metrics.inset)
                     .py(theme.metrics.inset)
                     .when(loading && track.is_none(), |this| {

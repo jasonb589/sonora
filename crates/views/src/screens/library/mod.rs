@@ -19,8 +19,8 @@ use i18n::t;
 use music::{Shape, Track};
 use router::{Destination, LibraryTab, navigate};
 use state::{
-    Addition, AppSettings, Library, LibraryPart, LibraryState, Origin, Playback, Scan, Shelf,
-    Sonora,
+    Addition, AppSettings, DownloadsChanged, Library, LibraryPart, LibraryState, Origin, Playback,
+    Scan, Shelf, Sonora,
 };
 use ui::{
     ActiveTheme as _, Button, Card, Deck, FilterChange, LEADING, Mode, Pinnable, Popovers, Popup,
@@ -128,9 +128,9 @@ impl Section {
             (Shelf::Streaming, Shape::Saved, Section::Songs) => "library-no-songs",
             (Shelf::Streaming, Shape::Saved, Section::Albums) => "library-no-albums",
             (Shelf::Streaming, Shape::Saved, Section::Artists) => "library-no-artists",
-            (Shelf::Streaming, Shape::Catalog, Section::Songs) => "library-no-catalog-songs",
-            (Shelf::Streaming, Shape::Catalog, Section::Albums) => "library-no-catalog-albums",
-            (Shelf::Streaming, Shape::Catalog, Section::Artists) => "library-no-catalog-artists",
+            (Shelf::Streaming, Shape::Catalog(_), Section::Songs) => "library-no-catalog-songs",
+            (Shelf::Streaming, Shape::Catalog(_), Section::Albums) => "library-no-catalog-albums",
+            (Shelf::Streaming, Shape::Catalog(_), Section::Artists) => "library-no-catalog-artists",
             (Shelf::Streaming, _, Section::Playlists) => "library-no-playlists",
         }
     }
@@ -138,7 +138,7 @@ impl Section {
     fn glyph(self, shape: Shape) -> &'static str {
         match (self, shape) {
             (Section::Songs, Shape::Saved) => "icons/heart.svg",
-            (Section::Songs, Shape::Catalog) => "icons/music.svg",
+            (Section::Songs, Shape::Catalog(_)) => "icons/music.svg",
             (Section::Albums, _) => "icons/disc-3.svg",
             (Section::Playlists, _) => "icons/list-music.svg",
             (Section::Artists, _) => "icons/user-round.svg",
@@ -238,6 +238,7 @@ impl LibraryView {
 
         let songs = cx.new(|cx| {
             let playlist_scrollbar = cx.new(|_| Scrollbar::inset().watching(id));
+            crate::shared::tracks::follow_downloads(cx);
             let from = origin(shelf);
             let source = TrackSource::new(
                 LIBRARY_COLUMNS,
@@ -304,6 +305,19 @@ impl LibraryView {
         cx.observe(&library, |this, _, cx| {
             this.rebuild(cx);
             this.restore(cx);
+            cx.notify();
+        })
+        .detach();
+        // The Downloaded filter follows downloads as they land, and not each redraw of their
+        // progress, which would drop the open menu and the selection every time.
+        let downloads = Sonora::global(cx).downloads.clone();
+        cx.subscribe(&downloads, |this, _, _: &DownloadsChanged, cx| {
+            for table in this.tables() {
+                if table.narrowed(cx) {
+                    table.rebuild(cx);
+                }
+            }
+            this.cards_dirty = true;
             cx.notify();
         })
         .detach();
@@ -609,10 +623,10 @@ impl LibraryView {
             strip = strip.text(runtime(duration));
         }
         let (title, icon, eyebrow) = match (self.shape(cx), self.shelf) {
-            (Shape::Catalog, Shelf::Local) => {
+            (Shape::Catalog(_), Shelf::Local) => {
                 (t!("nav-songs"), "icons/disc-3.svg", t!("nav-local"))
             }
-            (Shape::Catalog, Shelf::Streaming) => {
+            (Shape::Catalog(_), Shelf::Streaming) => {
                 (t!("nav-songs"), "icons/disc-3.svg", t!("nav-library"))
             }
             (Shape::Saved, _) => (
@@ -782,9 +796,7 @@ impl LibraryView {
             Kind::Playlists(ids.len()),
             move |cx| {
                 library.update(cx, |library, cx| {
-                    for id in ids {
-                        library.remove_playlist_from_library(id, cx);
-                    }
+                    library.remove_playlists_from_library(ids, cx)
                 });
                 table.update(cx, |table, cx| {
                     table.delegate_mut().clear_selection();
@@ -812,6 +824,47 @@ impl LibraryView {
         for table in self.tables() {
             table.rebuild(cx);
         }
+    }
+
+    /// Whether the shown section is still loading its first rows, the one time the page draws
+    /// skeletons in place of its cards.
+    fn waiting(&self, cx: &App) -> bool {
+        loading(&self.library, self.shelf, self.section, cx)
+            && self.table(self.section).row_count(cx) == 0
+    }
+
+    /// Skeleton cards laid out like the deck that will replace them, enough rows to fill the
+    /// window. Artists get round ones, like their cards.
+    fn pending_cards(&self, window: &Window, cx: &App) -> AnyElement {
+        let inset = cx.theme().metrics.inset;
+        let room = cells::content_width(window, page::reserved(inset), cx);
+        let layout = CardGrid::layout(room);
+        let gap = deck_gap(window);
+        let tile = Card::tile_height(layout.card, window, cx);
+        let rows = (window.viewport_size().height / (tile + gap))
+            .ceil()
+            .max(1.) as usize;
+        let circle = self.section == Section::Artists;
+
+        Scroller::new("library-cards", &self.card_scrollbar)
+            .bottom_inset(crate::chrome::Chrome::bottom(cx))
+            .py(inset)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .px(inset)
+                    .gap(gap)
+                    .children((0..rows).map(|row| {
+                        CardGrid::new(room).children((0..layout.columns).map(move |column| {
+                            Card::skeleton(("library-pending", row * layout.columns + column))
+                                .tile(layout.card)
+                                .when(circle, Card::circle)
+                                .into_any_element()
+                        }))
+                    })),
+            )
+            .into_any_element()
     }
 
     fn cards(&mut self, window: &Window, cx: &App) -> AnyElement {
@@ -877,6 +930,7 @@ impl LibraryView {
         let view = self.me.clone();
 
         Scroller::new("library-cards", &self.card_scrollbar)
+            .bottom_inset(crate::chrome::Chrome::bottom(cx))
             .py(inset)
             .child(
                 Deck::new("library-deck")
@@ -1094,6 +1148,7 @@ impl Render for LibraryView {
                 .into_any_element(),
             (section, Mode::List) if section.listing() => {
                 Scroller::new("library-page", &self.scrollbar)
+                    .bottom_inset(crate::chrome::Chrome::bottom(cx))
                     .pt(inset)
                     .pb(inset)
                     .child(div().px(inset).child(self.header(cx)))
@@ -1102,10 +1157,12 @@ impl Render for LibraryView {
                     .into_any_element()
             }
             (_, Mode::List) => Scroller::new("library-page", &self.scrollbar)
+                .bottom_inset(crate::chrome::Chrome::bottom(cx))
                 .pb(inset)
                 .child(self.table(self.section).element())
                 .when_some(note, |this, note| this.child(note))
                 .into_any_element(),
+            (_, Mode::Grid) if note.is_none() && self.waiting(cx) => self.pending_cards(window, cx),
             (_, Mode::Grid) => match note {
                 Some(note) => note.size_full().into_any_element(),
                 None => self.cards(window, cx),
