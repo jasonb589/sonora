@@ -21,7 +21,7 @@ use ui::{
 
 use crate::chrome::tools;
 use crate::chrome::{Toolbar, Tooled};
-use crate::shared::about::{AboutArtist, about_modal};
+use crate::shared::about::{about_modal, blurb};
 use crate::shared::album_grid::CardGrid;
 use crate::shared::cards::{self, ReleaseFilter};
 use crate::shared::confirm::Confirm;
@@ -852,17 +852,36 @@ impl ArtistView {
         .into_any_element()
     }
 
-    fn about(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+    /// The first lines of the biography under the hero, where the page names the artist, with the
+    /// whole of it in a dialog behind a click. An artist with nothing to say shows nothing.
+    fn biography(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let theme = *cx.theme();
         let artist = self.detail.read(cx).artist()?;
-        let card = AboutArtist::new("artist-about", artist.name.clone())
-            .cover(artist.cover_large.clone())
-            .biography(artist.biography.clone())
-            .on_open(cx.listener(|this, _, _, cx| {
-                this.about_open = true;
-                cx.notify();
-            }));
+        let biography = artist
+            .biography
+            .clone()
+            .filter(|biography| !biography.is_empty())?;
 
-        Some(div().pt_6().child(card).into_any_element())
+        Some(
+            div()
+                .pb_6()
+                .min_w_0()
+                .cursor_pointer()
+                .text_size(theme.text(Text::Body))
+                .text_color(theme.muted_foreground)
+                .hover(|style| style.text_color(theme.foreground))
+                .on_click(cx.listener(|this, _, _, cx| {
+                    this.about_open = true;
+                    cx.notify();
+                }))
+                .child(
+                    div()
+                        .line_clamp(3)
+                        .text_ellipsis()
+                        .child(blurb(Some(biography))),
+                )
+                .into_any_element(),
+        )
     }
 
     /// Closes the About the artist dialog when it is open, and says whether it was.
@@ -1001,7 +1020,7 @@ impl Render for ArtistView {
             Mode::List => self.listed(cx),
         };
         let grid = self.releases(window, cx);
-        let about = self.about(cx);
+        let biography = self.biography(cx);
         while self.rails.is_empty() {
             self.rails.push(Rail::new(cx.entity_id()));
         }
@@ -1028,10 +1047,10 @@ impl Render for ArtistView {
                         .child(t!("artist-popular")),
                 )
             }))
+            .children(biography)
             .child(tracks)
             .children(grid)
             .children(rails)
-            .children(about)
             .when(release_padding > Pixels::ZERO, |this| {
                 this.child(div().h(release_padding).flex_none())
             });

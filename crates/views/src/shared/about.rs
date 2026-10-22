@@ -160,7 +160,7 @@ pub(crate) fn about_modal(
         })
 }
 
-fn blurb(biography: Option<String>) -> SharedString {
+pub(crate) fn blurb(biography: Option<String>) -> SharedString {
     biography
         .filter(|biography| !biography.is_empty())
         .map(|biography| rich(&biography).0)
