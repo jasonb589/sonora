@@ -55,6 +55,12 @@ const SOFT_SIGMA: f32 = 1.6;
 const SMALL_BYTES: usize = 64 * 1024;
 const BIG_BYTES: usize = 256 * 1024;
 const MAX_PENDING: usize = 8;
+
+/// How many times a cover whose request failed is asked for again, and how long between the
+/// tries. A dropped link comes back in seconds, and the cache keeps a failed load as a failure,
+/// so the tile it leaves behind stays empty for the rest of the session unless this asks again.
+const RETRY_TRIES: usize = 4;
+const RETRY_FAILED: Duration = Duration::from_secs(2);
 /// How many of the `MAX_PENDING` loads a prefetched cover may take, so a cover on screen always
 /// finds a free one.
 const PREFETCH_PENDING: usize = MAX_PENDING / 2;
@@ -103,24 +109,45 @@ fn fetch(
     let client = cx.http_client();
     let asset_source = cx.asset_source().clone();
 
+    let executor = cx.background_executor().clone();
     async move {
         match resource {
             Resource::Path(path) => Ok(std::fs::read(path.as_ref())?),
             Resource::Uri(uri) => {
-                let mut response = client.get(uri.as_ref(), ().into(), true).await?;
-                let mut body = Vec::new();
-                response.body_mut().read_to_end(&mut body).await?;
-                if !response.status().is_success() {
-                    let mut body = String::from_utf8_lossy(&body).into_owned();
-                    let first_line = body.lines().next().unwrap_or("").trim_end();
-                    body.truncate(first_line.len());
-                    return Err(ImageCacheError::BadStatus {
-                        uri,
-                        status: response.status(),
-                        body,
-                    });
+                let mut tries = 0;
+                loop {
+                    let response = client.get(uri.as_ref(), ().into(), true).await;
+                    let mut response = match response {
+                        Ok(response) => response,
+                        Err(_) if tries < RETRY_TRIES => {
+                            tries += 1;
+                            executor.timer(RETRY_FAILED).await;
+                            continue;
+                        }
+                        Err(error) => return Err(error.into()),
+                    };
+                    let mut body = Vec::new();
+                    let read = response.body_mut().read_to_end(&mut body).await;
+                    if let Err(error) = read {
+                        if tries >= RETRY_TRIES {
+                            return Err(error.into());
+                        }
+                        tries += 1;
+                        executor.timer(RETRY_FAILED).await;
+                        continue;
+                    }
+                    if !response.status().is_success() {
+                        let mut reason = String::from_utf8_lossy(&body).into_owned();
+                        let first_line = reason.lines().next().unwrap_or("").trim_end();
+                        reason.truncate(first_line.len());
+                        return Err(ImageCacheError::BadStatus {
+                            uri: uri.clone(),
+                            status: response.status(),
+                            body: reason,
+                        });
+                    }
+                    return Ok(body);
                 }
-                Ok(body)
             }
             Resource::Embedded(path) => {
                 let Some(data) = asset_source.load(&path)? else {
