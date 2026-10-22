@@ -6,17 +6,20 @@ use futures::AsyncReadExt as _;
 use futures::channel::oneshot;
 use gpui::prelude::*;
 use gpui::{
-    App, Asset, AssetLogger, Context, Div, ElementId, Entity, Global, Hsla, ImageCache,
-    ImageCacheError, ImageSource, Interactivity, ObjectFit, Pixels, RenderImage, Resource,
-    SharedString, SharedUri, StyleRefinement, Styled, Task, Window, div, img, px, svg,
+    AnyElement, App, Asset, AssetLogger, Bounds, Context, Div, ElementId, Entity, Global,
+    GlobalElementId, Hsla, ImageCache, ImageCacheError, ImageSource, InspectorElementId,
+    Interactivity, LayoutId, ObjectFit, Pixels, Position, RenderImage, Resource, SharedString,
+    SharedUri, Style, StyleRefinement, Styled, Task, Window, div, img, px, svg,
 };
 use image::{
     AnimationDecoder, DynamicImage, Frame, ImageDecoder, ImageFormat, RgbaImage,
     codecs::{gif::GifDecoder, webp::WebPDecoder},
     imageops,
 };
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::io::Cursor;
+use std::panic::Location;
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock, mpsc};
 use std::time::{Duration, Instant};
@@ -26,9 +29,10 @@ const FILE_PREFIX: &str = "file://";
 const FALLBACK_ICON: &str = "icons/music.svg";
 pub(crate) const ROUNDED: Pixels = px(4.);
 /// What the cache trims back to at the least. The budget grows to one screenful of the
-/// largest window a cover was drawn in, so a HiDPI grid never trims what it shows. The
-/// cache is allowed half as much again past its budget while a scroll pulls covers in,
-/// since a trim asks every window to redraw and is worth doing in one batch.
+/// largest window a cover was drawn in, plus the `PREFETCH_REACH` laid out past both of its
+/// edges, so a HiDPI grid never trims what it shows or is about to. The cache is allowed half
+/// as much again past its budget while a scroll pulls covers in, since a trim asks every
+/// window to redraw and is worth doing in one batch.
 const CACHE_BYTES: usize = 16 * 1024 * 1024;
 const CACHE_ITEMS: usize = 256;
 /// The largest edge a cover is decoded at. It sits above a fullscreen cover on a 5K screen at
@@ -43,10 +47,7 @@ const GRACE: Duration = Duration::from_secs(5);
 const KEEP_ITEMS: usize = 96;
 const IDLE: Duration = Duration::from_secs(120);
 const ORPHAN: Duration = Duration::from_secs(20);
-/// How often the cache measures itself, gives the covers that failed another try and drops what
-/// no window has asked for. It is short because the retry rides on it: a tile that stays blank
-/// for half a minute reads as artwork that is gone for good.
-const SWEEP: Duration = Duration::from_secs(10);
+const SWEEP: Duration = Duration::from_secs(30);
 /// How many softened covers are kept. Only the cover waiting on its large art is drawn
 /// soft, so two cover the current track and a skip back.
 const SOFT_ITEMS: usize = 2;
@@ -54,25 +55,12 @@ const SOFT_SIGMA: f32 = 1.6;
 const SMALL_BYTES: usize = 64 * 1024;
 const BIG_BYTES: usize = 256 * 1024;
 const MAX_PENDING: usize = 8;
-
-/// How many times a cover is asked for again when the network drops it part way: a flaky link
-/// closes a connection mid-body often enough that one more try turns a missing cover into a
-/// drawn one, and one that never arrives is asked for again by the sweep.
-const FETCH_ATTEMPTS: usize = 3;
-/// How long one try at a cover waits before the next. A connection that answered with rubbish
-/// is replaced by the next attempt rather than repaired, and a server that was too busy for the
-/// first request is given a moment to come back.
-const RETRY_PAUSE: Duration = Duration::from_millis(250);
-/// How long a cover that failed to arrive is left alone before the server is asked for it again.
-/// A link that drops one cover usually drops the next few with it, so the wait is short: the
-/// artwork that comes back is worth more than the request it costs.
-const RETRY_FAILED: Duration = Duration::from_secs(8);
-/// How many times a cover that failed is asked for again before the cache leaves it alone. A
-/// server that has not resolved a cover yet answers with a stand-in of its own, and asking is
-/// what sets it going, so a handful of asks spread over a minute are all it is worth: a cover
-/// that is simply not there answers the same way every time.
-const RETRY_TRIES: u32 = 8;
-
+/// How many of the `MAX_PENDING` loads a prefetched cover may take, so a cover on screen always
+/// finds a free one.
+const PREFETCH_PENDING: usize = MAX_PENDING / 2;
+/// How far past each edge of a scrolled region rows are laid out unseen so their covers load
+/// before they scroll in, as a share of the region's length.
+pub const PREFETCH_REACH: f32 = 0.5;
 /// How many covers decode at once. A decode holds the whole source image, so this bounds
 /// the transient memory, and running decodes on their own threads keeps those buffers in a
 /// couple of malloc arenas rather than one per worker thread.
@@ -87,6 +75,11 @@ const REPRIEVE: Duration = Duration::from_millis(250);
 const TINT_ITEMS: usize = 4096;
 
 type ArtworkKey = (Resource, u32);
+
+thread_local! {
+    /// Set while `prefetch` lays out rows that will not be drawn.
+    static PREFETCHING: Cell<bool> = const { Cell::new(false) };
+}
 
 type Job = Box<dyn FnOnce() + Send>;
 
@@ -109,57 +102,23 @@ fn fetch(
 ) -> impl std::future::Future<Output = Result<Vec<u8>, ImageCacheError>> + Send + 'static {
     let client = cx.http_client();
     let asset_source = cx.asset_source().clone();
-    let executor = cx.background_executor().clone();
 
     async move {
         match resource {
             Resource::Path(path) => Ok(std::fs::read(path.as_ref())?),
             Resource::Uri(uri) => {
+                let mut response = client.get(uri.as_ref(), ().into(), true).await?;
                 let mut body = Vec::new();
-                let mut attempt = 0;
-                loop {
-                    attempt += 1;
-                    body.clear();
-                    let asked = async {
-                        let mut response = client.get(uri.as_ref(), ().into(), true).await?;
-                        response.body_mut().read_to_end(&mut body).await?;
-                        Ok::<_, ImageCacheError>(response.status())
-                    }
-                    .await;
-
-                    if let Ok(status) = &asked
-                        && status.is_success()
-                    {
-                        break;
-                    }
-                    // A connection the host dropped and a status it was too busy to answer with
-                    // say the same thing here: neither is an answer about whether the cover is
-                    // there, so both are worth asking again.
-                    let worth_asking = match &asked {
-                        Ok(status) => could_arrive_later(status.as_u16()),
-                        Err(_) => true,
-                    };
-                    let reason = match &asked {
-                        Ok(status) => status.to_string(),
-                        Err(error) => error.to_string(),
-                    };
-                    if !worth_asking || attempt >= FETCH_ATTEMPTS {
-                        log::debug!("artwork: {uri} is not coming after {attempt} ({reason})");
-                        return match asked {
-                            Ok(status) => {
-                                let text = String::from_utf8_lossy(&body);
-                                let first_line = text.lines().next().unwrap_or("").trim_end();
-                                Err(ImageCacheError::BadStatus {
-                                    uri,
-                                    status,
-                                    body: first_line.to_owned(),
-                                })
-                            }
-                            Err(error) => Err(error),
-                        };
-                    }
-                    log::debug!("artwork: {uri} was dropped ({reason}); asking again");
-                    executor.timer(RETRY_PAUSE).await;
+                response.body_mut().read_to_end(&mut body).await?;
+                if !response.status().is_success() {
+                    let mut body = String::from_utf8_lossy(&body).into_owned();
+                    let first_line = body.lines().next().unwrap_or("").trim_end();
+                    body.truncate(first_line.len());
+                    return Err(ImageCacheError::BadStatus {
+                        uri,
+                        status: response.status(),
+                        body,
+                    });
                 }
                 Ok(body)
             }
@@ -173,14 +132,6 @@ fn fetch(
             }
         }
     }
-}
-
-/// Whether a status the server answered with could hold a cover another time. A server that is
-/// busy, restarting or asking to be waited for says so with one of these; a cover it does not
-/// have answers with the same 404 every time, and holding a tile open for that is not a retry
-/// but a request nobody is waiting for.
-fn could_arrive_later(status: u16) -> bool {
-    matches!(status, 408 | 425 | 429 | 500..=599)
 }
 
 /// A decoded cover with the palette sampled from it. The loader samples it on its own
@@ -360,20 +311,6 @@ fn bgra(image: &mut RgbaImage) {
     }
 }
 
-/// A cover the cache asked for and did not get, with how many times it has asked.
-struct Tried {
-    at: Instant,
-    tries: u32,
-}
-
-impl Tried {
-    /// Whether the cover should be asked for again. A cover that is simply not there answers the
-    /// same way every time, so the tries `RETRY_TRIES` allows are all it is worth.
-    fn due(&self) -> bool {
-        self.tries < RETRY_TRIES && self.at.elapsed() > RETRY_FAILED
-    }
-}
-
 struct Cached {
     value: Result<Arc<RenderImage>, ImageCacheError>,
     bytes: usize,
@@ -389,9 +326,6 @@ struct ArtworkCache {
     condemned_at: Option<Instant>,
     pending: HashMap<ArtworkKey, Instant>,
     soft: HashMap<(Resource, u32), Arc<RenderImage>>,
-    /// The covers that failed to arrive, with how many times each has been asked for, so the sweep
-    /// asks the server again a few times and then leaves them alone.
-    failed: HashMap<ArtworkKey, Tried>,
     /// The palette of every cover decoded this run, kept apart from the frames
     /// so an eviction never costs a button its colour.
     tints: HashMap<Resource, CoverPalette>,
@@ -414,7 +348,6 @@ impl ArtworkCache {
                 condemned_soft: Vec::new(),
                 condemned_at: None,
                 pending: HashMap::new(),
-                failed: HashMap::new(),
                 soft: HashMap::new(),
                 tints: HashMap::new(),
                 bytes: 0,
@@ -432,16 +365,6 @@ impl ArtworkCache {
         decoded: Result<Decoded, ImageCacheError>,
         cx: &mut App,
     ) {
-        match &decoded {
-            Ok(_) => {
-                self.failed.remove(&resource);
-            }
-            Err(_) => {
-                let tries = self.failed.get(&resource).map_or(0, |tried| tried.tries) + 1;
-                let at = Instant::now();
-                self.failed.insert(resource.clone(), Tried { at, tries });
-            }
-        }
         if let Ok(decoded) = &decoded
             && !self.tints.contains_key(&resource.0)
         {
@@ -494,10 +417,11 @@ impl ArtworkCache {
         self.condemned.insert(resource.clone(), cached);
     }
 
-    /// What the cache trims back to: `CACHE_BYTES`, or one screenful of the largest window
-    /// when that is more.
+    /// What the cache trims back to: `CACHE_BYTES`, or one screenful of the largest window and
+    /// its prefetched reach when that is more.
     fn budget(&self) -> usize {
-        CACHE_BYTES.max(self.screen)
+        let reach = (self.screen as f32 * PREFETCH_REACH * 2.) as usize;
+        CACHE_BYTES.max(self.screen + reach)
     }
 
     /// Condemns the least recently drawn covers until the cache is back inside its budget,
@@ -580,20 +504,6 @@ impl ArtworkCache {
     }
 
     fn sweep(&mut self, cx: &mut App) {
-        let retry: Vec<ArtworkKey> = self
-            .failed
-            .iter()
-            .filter(|(_, tried)| tried.due())
-            .map(|(key, _)| key.clone())
-            .collect();
-        for key in &retry {
-            self.items.remove(key);
-            cx.remove_asset::<ArtworkResourceLoader>(&ArtworkSource {
-                resource: key.0.clone(),
-                edge: key.1,
-            });
-        }
-
         let held = self.items.len();
         let abandoned: Vec<ArtworkKey> = self
             .pending
@@ -608,13 +518,6 @@ impl ArtworkCache {
                 resource: resource.0.clone(),
                 edge: resource.1,
             });
-        }
-
-        // A tile showing a cover that failed is drawn from the primitives its view recorded on the
-        // frame that failed, so it only ever asks again when a window is drawn again: dropping the
-        // failure alone leaves the blank tile in place until something unrelated repaints it.
-        if !retry.is_empty() || !abandoned.is_empty() {
-            cx.refresh_windows();
         }
 
         let mut ages: Vec<(ArtworkKey, Instant, usize)> = self
@@ -752,9 +655,13 @@ impl ArtworkCache {
             (viewport.width.as_f32() * viewport.height.as_f32() * scale * scale) as usize * 4;
         self.screen = self.screen.max(screen);
 
-        if !self.pending.contains_key(&key) && self.pending.len() >= MAX_PENDING {
+        let room = match PREFETCHING.get() {
+            true => PREFETCH_PENDING,
+            false => MAX_PENDING,
+        };
+        if !self.pending.contains_key(&key) && self.pending.len() >= room {
             self.reap_pending(window, cx);
-            if self.pending.len() >= MAX_PENDING {
+            if self.pending.len() >= room {
                 return None;
             }
         }
@@ -772,6 +679,21 @@ impl ArtworkCache {
         self.pending.remove(&key);
         self.insert(key, value, cx);
         Some(image)
+    }
+
+    /// Whether a cover at `edge` can be drawn without waiting on a load, counting a failed load,
+    /// which draws the placeholder, and a stand-in at a nearby edge.
+    fn holds(&self, resource: &Resource, edge: u32, soft: bool) -> bool {
+        let key = (resource.clone(), edge);
+        if self.items.contains_key(&key) || self.condemned.contains_key(&key) {
+            return true;
+        }
+        match soft {
+            true => self.soft.contains_key(&key),
+            false => self.items.iter().any(|((held, size), cached)| {
+                held == resource && *size >= edge / 2 && cached.value.is_ok()
+            }),
+        }
     }
 
     /// The largest decode the cache holds of the same cover at no less than half of `edge`, to
@@ -840,20 +762,52 @@ pub fn cover_palette(url: &str, cx: &App) -> Option<CoverPalette> {
     installed.0.read(cx).tints.get(&resource).copied()
 }
 
-/// Asks for every cover that failed to arrive again, and draws every window so the tiles that were
-/// left blank go back to the server now rather than when the cache gets round to it. This is what
-/// a reconnect goes through: those tiles are blank already, so asking again costs nothing but the
-/// requests.
+/// The palette of the cover at `url` without keeping its pixels. A cover the cache has
+/// drawn answers from its stored palette, and any other is decoded at `PALETTE_EDGE`,
+/// which is plenty for a hue count and costs a fraction of the full-size frame.
+pub(crate) fn sample_palette(url: SharedString, cx: &mut App) -> Task<CoverPalette> {
+    if let Some(palette) = cover_palette(&url, cx) {
+        return Task::ready(palette);
+    }
+    let load = ArtworkAssetLoader::load(
+        ArtworkSource {
+            resource: resource(url),
+            edge: PALETTE_EDGE,
+        },
+        cx,
+    );
+
+    cx.background_spawn(async move {
+        load.await
+            .map(|decoded| decoded.palette)
+            .unwrap_or_default()
+    })
+}
+
+pub fn artwork_usage(cx: &App) -> Option<(usize, usize)> {
+    let installed = cx.try_global::<Installed>()?;
+    let cache = installed.0.read(cx);
+    let soft_bytes: usize = cache.soft.values().map(|image| image_bytes(image)).sum();
+    Some((
+        cache.items.len() + cache.soft.len(),
+        cache.bytes + soft_bytes,
+    ))
+}
+
+/// Asks for every cover that failed to arrive again, and draws every window so the tiles that
+/// were left blank go back to the server now rather than when the cache gets round to it. This
+/// is what a reconnect goes through: those tiles are blank already, so asking again costs
+/// nothing but the requests.
 pub fn retry_failed(cx: &mut App) {
     ask_again(cx, false);
 }
 
 /// Asks for every cover again, the ones already drawn included. This is what a page asking its
-/// source for everything again goes through: the covers that failed while the connection was down
-/// and the ones the server has replaced behind the cache since they were drawn, which the image
-/// cache's own revalidation turns into a handful of requests answered `not modified`. Dropping a
-/// cover that is on screen leaves its tile to be drawn again a moment later, so it belongs to a
-/// control the user asked for and not to a reconnect happening underneath them.
+/// source for everything again goes through: the covers that failed while the connection was
+/// down and the ones the server has replaced behind the cache since they were drawn, which the
+/// HTTP cache's own revalidation turns into a handful of requests answered `not modified`.
+/// Dropping a cover that is on screen leaves its tile to be drawn again a moment later, so it
+/// belongs to a control the user asked for and not to a reconnect happening underneath them.
 pub fn reload_artwork(cx: &mut App) {
     ask_again(cx, true);
 }
@@ -868,7 +822,12 @@ fn ask_again(cx: &mut App, everything: bool) {
     let cache = installed.0.clone();
 
     cache.update(cx, |cache, cx| {
-        let mut asked: Vec<ArtworkKey> = cache.failed.drain().map(|(key, _)| key).collect();
+        let mut asked: Vec<ArtworkKey> = cache
+            .items
+            .iter()
+            .filter(|(_, cached)| cached.value.is_err())
+            .map(|(key, _)| key.clone())
+            .collect();
         if everything {
             asked.extend(cache.items.keys().cloned());
             asked.extend(cache.condemned.keys().cloned());
@@ -902,36 +861,89 @@ fn ask_again(cx: &mut App, everything: bool) {
     });
 }
 
-/// The palette of the cover at `url` without keeping its pixels. A cover the cache has
-/// drawn answers from its stored palette, and any other is decoded at `PALETTE_EDGE`,
-/// which is plenty for a hue count and costs a fraction of the full-size frame.
-pub(crate) fn sample_palette(url: SharedString, cx: &mut App) -> Task<CoverPalette> {
-    if let Some(palette) = cover_palette(&url, cx) {
-        return Task::ready(palette);
-    }
-    let load = ArtworkAssetLoader::load(
-        ArtworkSource {
-            resource: resource(url),
-            edge: PALETTE_EDGE,
-        },
-        cx,
-    );
-
-    cx.background_spawn(async move {
-        load.await
-            .map(|decoded| decoded.palette)
-            .unwrap_or_default()
-    })
+/// Lays out `element` without drawing it, so the covers inside start loading before it
+/// scrolls into view. Those loads take at most `PREFETCH_PENDING` of the slots, so a cover
+/// already on screen never waits behind one that is not.
+pub fn prefetch(mut element: AnyElement, window: &mut Window, cx: &mut App) {
+    let outer = PREFETCHING.replace(true);
+    element.request_layout(window, cx);
+    PREFETCHING.set(outer);
 }
 
-pub fn artwork_usage(cx: &App) -> Option<(usize, usize)> {
-    let installed = cx.try_global::<Installed>()?;
-    let cache = installed.0.read(cx);
-    let soft_bytes: usize = cache.soft.values().map(|image| image_bytes(image)).sum();
-    Some((
-        cache.items.len() + cache.soft.len(),
-        cache.bytes + soft_bytes,
-    ))
+/// Rows just past the edge of a list, laid out with `prefetch` while the list is, so their
+/// covers are loading when they scroll in. It takes no room and draws nothing.
+pub struct Prefetch {
+    rows: Vec<AnyElement>,
+}
+
+impl Prefetch {
+    pub fn new(rows: impl IntoIterator<Item = AnyElement>) -> Self {
+        Self {
+            rows: rows.into_iter().collect(),
+        }
+    }
+}
+
+impl IntoElement for Prefetch {
+    type Element = Self;
+
+    fn into_element(self) -> Self::Element {
+        self
+    }
+}
+
+impl Element for Prefetch {
+    type RequestLayoutState = ();
+    type PrepaintState = ();
+
+    fn id(&self) -> Option<ElementId> {
+        None
+    }
+
+    fn source_location(&self) -> Option<&'static Location<'static>> {
+        None
+    }
+
+    fn request_layout(
+        &mut self,
+        _id: Option<&GlobalElementId>,
+        _inspector_id: Option<&InspectorElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> (LayoutId, Self::RequestLayoutState) {
+        for row in self.rows.drain(..) {
+            prefetch(row, window, cx);
+        }
+        let style = Style {
+            position: Position::Absolute,
+            ..Style::default()
+        };
+
+        (window.request_layout(style, [], cx), ())
+    }
+
+    fn prepaint(
+        &mut self,
+        _id: Option<&GlobalElementId>,
+        _inspector_id: Option<&InspectorElementId>,
+        _bounds: Bounds<Pixels>,
+        _request_layout: &mut Self::RequestLayoutState,
+        _window: &mut Window,
+        _cx: &mut App,
+    ) -> Self::PrepaintState {
+    }
+
+    fn paint(
+        &mut self,
+        _id: Option<&GlobalElementId>,
+        _inspector_id: Option<&InspectorElementId>,
+        _bounds: Bounds<Pixels>,
+        _request_layout: &mut Self::RequestLayoutState,
+        _prepaint: &mut Self::PrepaintState,
+        _window: &mut Window,
+        _cx: &mut App,
+    ) {
+    }
 }
 
 fn image_bytes(image: &RenderImage) -> usize {
@@ -980,6 +992,7 @@ pub struct Artwork {
     fallback: SharedString,
     accent: bool,
     soft: bool,
+    overlay: bool,
     interactivity: Interactivity,
 }
 
@@ -992,6 +1005,7 @@ impl Artwork {
             circle: false,
             radius: None,
             soft: false,
+            overlay: false,
             fallback: FALLBACK_ICON.into(),
             accent: false,
             interactivity: Interactivity::new(),
@@ -1028,6 +1042,13 @@ impl Artwork {
         self
     }
 
+    /// Draws nothing while the image loads or after it fails, for a cover stacked over another
+    /// that already shows, so neither the skeleton nor the placeholder hides it.
+    pub fn overlay(mut self) -> Self {
+        self.overlay = true;
+        self
+    }
+
     pub fn accent(mut self) -> Self {
         self.accent = true;
         self
@@ -1056,6 +1077,7 @@ impl RenderOnce for Artwork {
             fallback,
             accent,
             soft,
+            overlay,
             interactivity,
         } = self;
         let theme = *cx.theme();
@@ -1072,7 +1094,10 @@ impl RenderOnce for Artwork {
         };
         let placeholder = {
             let fallback = fallback.clone();
-            move || blank(size, rounded, muted, glyph, fallback.clone()).into_any_element()
+            move || match overlay {
+                true => div().size(size).into_any_element(),
+                false => blank(size, rounded, muted, glyph, fallback.clone()).into_any_element(),
+            }
         };
 
         match url {
@@ -1080,6 +1105,13 @@ impl RenderOnce for Artwork {
                 let cache = ArtworkCache::entity(cx);
                 let resource = resource(url);
                 let edge = sample_edge(size, window);
+                if PREFETCHING.get() {
+                    cache.update(cx, |cache, cx| cache.load_at(&resource, edge, window, cx));
+                    return div().size(size).into_any_element();
+                }
+                // Drawn at once rather than after `img`'s loading delay, and under the cover,
+                // so a cover that lands mid-pulse simply covers it.
+                let waiting = !overlay && !cache.read(cx).holds(&resource, edge, soft);
                 let source = ImageSource::Custom(Arc::new({
                     let cache = cache.clone();
                     move |window, cx| {
@@ -1107,18 +1139,27 @@ impl RenderOnce for Artwork {
                     }
                 }));
                 refined(
-                    img(source)
-                        .image_cache(&cache)
+                    div()
+                        .relative()
                         .size(size)
-                        .object_fit(ObjectFit::Cover)
-                        .rounded(rounded)
-                        .with_loading(move || {
-                            Skeleton::new()
-                                .size(size)
-                                .rounded(rounded)
-                                .into_any_element()
+                        .when(waiting, |this| {
+                            this.child(
+                                Skeleton::new()
+                                    .absolute()
+                                    .top_0()
+                                    .left_0()
+                                    .size(size)
+                                    .rounded(rounded),
+                            )
                         })
-                        .with_fallback(placeholder),
+                        .child(
+                            img(source)
+                                .image_cache(&cache)
+                                .size(size)
+                                .object_fit(ObjectFit::Cover)
+                                .rounded(rounded)
+                                .with_fallback(placeholder),
+                        ),
                     interactivity,
                 )
                 .into_any_element()
@@ -1193,34 +1234,5 @@ mod tests {
         assert_eq!(frames[0].buffer().dimensions(), (64, 64));
         assert_eq!(frames[0].delay(), Delay::from_numer_denom_ms(80, 1));
         assert_eq!(frames[1].delay(), Delay::from_numer_denom_ms(120, 1));
-    }
-
-    #[test]
-    fn a_busy_server_is_asked_again_but_a_missing_cover_is_not() {
-        assert!(could_arrive_later(503));
-        assert!(could_arrive_later(429));
-        assert!(could_arrive_later(408));
-        assert!(!could_arrive_later(404));
-        assert!(!could_arrive_later(403));
-    }
-
-    #[test]
-    fn a_cover_that_failed_is_asked_for_again_a_few_times_and_then_left_alone() {
-        let old = Instant::now() - Duration::from_secs(2 * RETRY_FAILED.as_secs());
-        let just_failed = Tried {
-            at: Instant::now(),
-            tries: 1,
-        };
-        let due = Tried { at: old, tries: 1 };
-        let spent = Tried {
-            at: old,
-            tries: RETRY_TRIES,
-        };
-
-        // Nothing is asked for again on the frame it failed, a stale failure is asked for again, and a
-        // failure that has been asked for as many times as it is worth is left where it is.
-        assert!(!just_failed.due());
-        assert!(due.due());
-        assert!(!spent.due());
     }
 }

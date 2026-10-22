@@ -4,8 +4,8 @@ use crate::chrome::Chrome;
 use crate::shared::menus::{Item, ItemMenu};
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, Context, Entity, MouseDownEvent, Pixels, Point, Render, ScrollHandle, WeakEntity,
-    Window, div, px,
+    AnyElement, App, Context, Entity, MouseDownEvent, Pixels, Point, Render, ScrollHandle,
+    WeakEntity, Window, div, px,
 };
 use i18n::t;
 use music::GenreItem;
@@ -106,8 +106,20 @@ impl HomeView {
             .update(cx, |home, cx| home.set_visible(visible, cx));
     }
 
-    /// The Quick picks deck. It is the one deck on the page: what the provider lists as played
-    /// lately and its picks after them, a skeleton while they are on their way.
+    /// Fetches the feed and the library it mixes from again.
+    pub(crate) fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.home.update(cx, |home, cx| home.refresh(cx));
+    }
+
+    /// Whether Quick picks or the shelves are still on their way.
+    pub(crate) fn is_loading(&self, cx: &App) -> bool {
+        let home = self.home.read(cx);
+        home.is_loading(cx) || home.is_feeding()
+    }
+
+    /// The Quick picks deck, headed by the name of the account it was drawn from. It is the
+    /// one deck on the page: what the provider lists as played lately and its picks after
+    /// them, a skeleton while they are on their way.
     fn quick_picks(&mut self, width: Pixels, cx: &mut Context<Self>) -> AnyElement {
         let items = self.home.read(cx).quick_picks();
         let shape = Shape::new(width, items.len());
@@ -196,6 +208,7 @@ impl Render for HomeView {
             });
 
         Scroller::new("home-page", &self.scrollbar)
+            .bottom_inset(crate::chrome::Chrome::bottom(cx))
             .px(theme.metrics.inset)
             .pt_3()
             .pb(theme.metrics.inset)

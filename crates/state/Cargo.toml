@@ -36,6 +36,9 @@ webview.workspace = true
 ashpd.workspace = true
 mpris-server.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
 [target.'cfg(not(any(target_os = "linux", target_os = "freebsd")))'.dependencies]
 souvlaki.workspace = true
 
@@ -45,3 +48,6 @@ windows-sys.workspace = true
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-core-foundation.workspace = true
 objc2-io-kit.workspace = true
+
+[build-dependencies]
+embed.workspace = true

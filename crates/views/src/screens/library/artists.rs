@@ -3,7 +3,7 @@ use ui::{ActiveTheme as _, Filter, FilterChange, FlagAxis};
 
 use gpui::{AnyElement, App, Entity, SharedString};
 use i18n::t;
-use music::{SavedArtist, Shape};
+use music::SavedArtist;
 use state::{Library, LibraryPart, Origin, Playback, Shelf};
 use ui::rank::{ESSENTIAL, HANDY};
 use ui::{Cell, ColumnSpec, Menu, Pin, TableSource, Width};
@@ -89,7 +89,7 @@ impl ArtistSource {
 
     /// Whether the shelf lists more than the favorites, so a favorites filter has something to do.
     fn catalog(&self, cx: &App) -> bool {
-        self.library.read(cx).shape(self.shelf) == Shape::Catalog
+        self.library.read(cx).shape(self.shelf).is_catalog()
     }
 }
 

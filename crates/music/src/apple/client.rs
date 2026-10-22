@@ -1743,7 +1743,8 @@ impl MusicApi for AppleClient {
     }
 
     /// Removing takes the playlist's own row id rather than the catalog id, so the playlist is
-    /// read first to find which row carries this track.
+    /// read first to find which row carries this track. A row matches on its reporting id too,
+    /// which is the id a song Apple delivered again is listed under.
     async fn remove_track_from_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()> {
         let limit = PAGE.to_string();
         let mut row = None;
@@ -1765,8 +1766,10 @@ impl MusicApi for AppleClient {
                     row.attributes
                         .as_ref()
                         .and_then(|attributes| attributes.play_params.as_ref())
-                        .and_then(|params| params.catalog_id.as_str())
-                        == Some(track_id)
+                        .is_some_and(|params| {
+                            params.catalog_id.as_str() == Some(track_id)
+                                || params.reporting_id.as_str() == Some(track_id)
+                        })
                 })
                 .and_then(|row| row.id.as_str().map(str::to_owned));
             if row.is_some() || outline.data.is_empty() || !outline.next.is_present() {

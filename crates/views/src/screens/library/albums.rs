@@ -5,8 +5,8 @@ use ui::{ActiveTheme as _, Filter, FilterChange, FlagAxis, RangeAxis, Unit};
 
 use gpui::{AnyElement, App, Entity, SharedString, TextAlign};
 use i18n::t;
-use music::{Album, Shape};
-use state::{Library, LibraryPart, Origin, Playback, Shelf};
+use music::Album;
+use state::{Collection, Library, LibraryPart, Origin, Playback, Shelf, Sonora};
 use ui::rank::{HANDY, NICE, SPARE, USEFUL};
 use ui::{Cell, ColumnSpec, Menu, Pin, TableSource, Width};
 
@@ -97,6 +97,8 @@ pub(super) struct AlbumSource {
     shelf: Shelf,
     year_span: Option<(f32, f32)>,
     starred: bool,
+    /// Keep only albums that were downloaded whole.
+    downloaded: bool,
     spread: RefCell<Option<Spread>>,
 }
 
@@ -119,6 +121,7 @@ impl AlbumSource {
             shelf,
             year_span: None,
             starred: false,
+            downloaded: false,
             spread: RefCell::new(None),
         }
     }
@@ -171,7 +174,7 @@ impl AlbumSource {
 
     /// Whether the shelf lists more than the favorites, so a favorites filter has something to do.
     fn catalog(&self, cx: &App) -> bool {
-        self.library.read(cx).shape(self.shelf) == Shape::Catalog
+        self.library.read(cx).shape(self.shelf).is_catalog()
     }
 }
 
@@ -189,6 +192,9 @@ impl TableSource for AlbumSource {
     fn matches(&self, row: usize, query: &str, cx: &App) -> bool {
         self.albums(cx).get(row).is_some_and(|album| {
             if self.starred && !self.library.read(cx).saved_album(&album.id) {
+                return false;
+            }
+            if self.downloaded && !downloaded(&album.id, cx) {
                 return false;
             }
             if let Some((low, high)) = self.year_span {
@@ -226,6 +232,13 @@ impl TableSource for AlbumSource {
                 on: self.starred,
             }));
         }
+        if self.downloaded || !Sonora::global(cx).downloads.read(cx).is_empty() {
+            axes.push(Filter::Flag(FlagAxis {
+                key: "filter-downloaded",
+                label: t!("filter-downloaded"),
+                on: self.downloaded,
+            }));
+        }
         axes
     }
 
@@ -239,9 +252,14 @@ impl TableSource for AlbumSource {
                 self.starred = value;
                 true
             }
+            FilterChange::Flag("filter-downloaded", value) => {
+                self.downloaded = value;
+                true
+            }
             FilterChange::Reset => {
                 self.year_span = None;
                 self.starred = false;
+                self.downloaded = false;
                 true
             }
             _ => false,
@@ -249,7 +267,7 @@ impl TableSource for AlbumSource {
     }
 
     fn filtered(&self, _cx: &App) -> bool {
-        self.year_span.is_some() || self.starred
+        self.year_span.is_some() || self.starred || self.downloaded
     }
 
     fn playing(&self, row: usize, cx: &App) -> bool {
@@ -385,4 +403,13 @@ fn year(album: &Album) -> String {
     } else {
         String::new()
     }
+}
+
+/// Whether an album was downloaded whole, or is on its way.
+fn downloaded(id: &str, cx: &App) -> bool {
+    Sonora::global(cx)
+        .downloads
+        .read(cx)
+        .set(Collection::Album, id)
+        .is_some()
 }
