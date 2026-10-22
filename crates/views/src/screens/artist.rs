@@ -1039,7 +1039,9 @@ impl Render for ArtistView {
             .pt(inset)
             .pb(inset)
             .on_scroll_wheel(cx.listener(Self::release_scroll))
-            .child(div().child(head).when(listed, |this| {
+            .child(div().child(head))
+            .children(biography)
+            .when(listed, |this| {
                 this.child(
                     div()
                         .pb_3()
@@ -1047,8 +1049,7 @@ impl Render for ArtistView {
                         .font_weight(FontWeight::BOLD)
                         .child(t!("artist-popular")),
                 )
-            }))
-            .children(biography)
+            })
             .child(tracks)
             .children(grid)
             .children(rails)
