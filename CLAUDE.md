@@ -176,3 +176,16 @@ locally, and every check runs on GitHub Actions.
 - **`crates/state/src/settings.rs` carries one fork-only line:** its state-store test drops the
   store before removing the database, because the kept connection holds the file open and Windows
   refuses to delete it. Keep that line when the file conflicts.
+- **Upstream renames break the fork's own provider code silently.** 0.44.0 turned
+  `Shape::Catalog` into `Shape::Catalog(Catalog::Fixed)`; only clippy found it, because the
+  fork-only `music/src/navidrome/` files are the only ones that name the variant. Compile the
+  workspace through CI before assuming a conflict-free merge is a buildable one.
+- **`crates/i18n` forbids a locale from carrying a key `en-US` lacks** (`no_locale_invents_a_key`),
+  so a sync that drops en-US keys needs them pruned out of `zh-CN` too. A dropped key the code
+  still asks for, like the shelf titles `home-newest-albums` and `home-top-songs`, has to go back
+  into `en-US` instead. `crates/views/src/screens/settings/mod.rs` now holds three exhaustive
+  `match slot` blocks, one of which is the label table, and a new `Slot` needs an arm in each.
+- **Clippy denies `items_after_test_module`,** so a block appended to the end of a file that ends
+  in `#[cfg(test)] mod tests` has to go above it. `crates/state/src/settings.rs` keeps the fork's
+  `immersive` getter and setter in their own `impl AppSettings` block ahead of the tests rather
+  than inside the file's big impl.
