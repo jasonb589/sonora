@@ -189,3 +189,11 @@ locally, and every check runs on GitHub Actions.
   in `#[cfg(test)] mod tests` has to go above it. `crates/state/src/settings.rs` keeps the fork's
   `immersive` getter and setter in their own `impl AppSettings` block ahead of the tests rather
   than inside the file's big impl.
+- **Upstream bumps `Cargo.toml` and `Cargo.lock` on every release,** so a sync brings their
+  version in and the app's About row starts reporting the release it was built from. The fork's
+  own numbering has to step past that: 0.44.0 was synced as 0.44.0 and its Chinese pass shipped as
+  0.44.1, so upstream's 0.44.1 shipped here as **0.44.2**, with `Cargo.toml`'s workspace version
+  and the thirteen workspace entries in `Cargo.lock` bumped in the same commit.
+- **A new `SessionEvent` variant lands in state's `match` arms,** one per owner; the fork's own
+  arm in `crates/state/src/cover.rs` is the only one git cannot merge on its own, since it is the
+  only arm the fork changed.
