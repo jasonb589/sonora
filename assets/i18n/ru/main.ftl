@@ -58,7 +58,7 @@ library-part-not-loaded = Этот раздел библиотеки не заг
 library-local-unconfigured = Настройте локальную библиотеку
 
 # app menu
-app-refresh-library = Обновить медиатеку
+app-refresh = Обновить
 app-sign-out = Выйти
 app-quit = Выход
 app-settings = Настройки…
@@ -264,7 +264,7 @@ filter-album = Фильтр треков альбома
 filter-reset = Сбросить фильтры
 filter-duration = Длительность
 filter-year = Год
-filter-explicit = Только с ненормативной лексикой
+filter-hide-explicit = Скрыть с ненормативной лексикой
 filter-playable = Только доступные
 filter-favorites = Только избранное
 filter-owned = Ваши
@@ -500,12 +500,16 @@ month-12 = дек.
 
 # settings
 settings-search = Поиск по настройкам
-settings-tab-general = Общие
-settings-tab-appearance = Внешний вид
-settings-tab-playback = Воспроизведение
-settings-tab-privacy = Конфиденциальность
-settings-tab-integrations = Интеграции
 settings-theme = Тема
+settings-page-player-bar = Панель плеера
+settings-player-bar-layout = Раскладка
+settings-player-bar-layout-detail = Расположение информации о треке, кнопок воспроизведения и шкалы прогресса
+settings-player-bar-classic = Классическая
+settings-player-bar-compact = Компактная
+settings-player-bar-centered = По центру
+settings-player-bar-surface = Поверхность
+settings-player-bar-transparent = Прозрачная панель плеера
+settings-player-bar-transparent-detail = Страницы, текст песен и боковые панели прокручиваются под плеером с матовым материалом контекстных меню
 settings-theme-detail = Цветовая палитра приложения
 settings-opacity = Непрозрачность
 settings-opacity-detail = Настройте непрозрачность фона приложения
@@ -531,8 +535,8 @@ settings-motion = Меньше анимации
 settings-motion-detail = Пропускать анимации и переходы в интерфейсе
 settings-pace = Скорость анимации
 settings-pace-detail = Насколько быстро проигрываются анимации интерфейса
-settings-saver = Энергосбережение
-settings-saver-detail = Ограничивать частоту кадров анимации, когда Sonora не в фокусе, начиная со следующего запуска
+settings-saver = Ограничивать FPS неактивного окна
+settings-saver-detail = Изменения применяются после перезапуска Sonora.
 settings-corners = Углы
 settings-corners-detail = Насколько скруглены поверхности и элементы
 settings-blur = Размытие интерфейса
@@ -643,7 +647,6 @@ settings-blur-lyrics-detail = Размывать следующие и пред�
 settings-romanized-lyrics = Романизация текста
 settings-romanized-lyrics-detail = Показывать локально собранное произношение для выбранных систем письма
 settings-romanization-writing-systems = Системы письма
-settings-lyrics-providers = Источники текстов песен
 settings-lyrics-providers-detail = Выберите сервисы для поиска текстов песен
 settings-lyrics-providers-selected = { $count ->
     [one] Выбран { $count } источник
@@ -664,19 +667,10 @@ settings-romanization-cyrillic = Кириллица
 settings-romanization-greek = Греческое письмо
 settings-romanization-arabic = Арабское письмо
 settings-romanization-other = Другие системы письма
-settings-advanced = Дополнительно
 settings-group-window = Окно
-settings-group-accounts = Аккаунты
-settings-group-library = Медиатека
 settings-group-text = Текст
 settings-group-motion = Анимация
-settings-group-fullscreen = Полноэкранный режим
-settings-group-title-bar = Заголовок окна
-settings-group-window-style = Стиль окна
 settings-equalizer = Эквалайзер
-settings-equalizer-detail = Меняет звучание по десяти полосам, по одной на октаву
-settings-equalizer-preset = Пресет
-settings-equalizer-preset-detail = Готовая кривая для полос ниже
 settings-equalizer-custom = Своя
 settings-equalizer-flat = Ровная
 settings-equalizer-bass-boost = Больше басов
@@ -690,24 +684,12 @@ settings-equalizer-classical = Классика
 settings-equalizer-electronic = Электроника
 settings-equalizer-acoustic = Акустика
 settings-equalizer-loudness = Громкость
-settings-equalizer-decibels = { $db } дБ
-settings-equalizer-hertz = { $hz } Гц
-settings-equalizer-kilohertz = { $khz } кГц
-settings-group-equalizer = Эквалайзер
-settings-group-discord = Discord
-settings-group-lyrics = Текст песни
-settings-group-project = Проект
 settings-adaptive-menu = Адаптивное контекстное меню
 settings-adaptive-menu-detail = Убирает пункты, которые уже видны в строке, — например альбом или исполнителя
 settings-accounts = Управление аккаунтами
 settings-accounts-detail = Сервисы, из которых это устройство может слушать музыку
-settings-provider-none = Не подключено
-settings-provider-connected = Подключено
 settings-provider-current = Воспроизведение из этого сервиса
-settings-provider-guest = Воспроизведение в гостевом режиме
-settings-provider-switch = Переключиться
 settings-sign-out = Выйти
-settings-group-scrobbling = Скробблинг
 settings-lastfm = Last.fm
 settings-lastfm-detail = Sonora скробблит через ваш собственный API-аккаунт Last.fm. Создайте его и вставьте сюда ключ и секрет.
 settings-librefm = Libre.fm
@@ -738,17 +720,13 @@ settings-rescan = Пересканировать
 settings-scan-walking = Сканирую…
 settings-scan-progress = { $percent }%
 settings-scan-done = Готово за { $seconds } с
-settings-tab-about = О программе
 settings-version = Версия
 settings-version-detail = Сборка Sonora, которая сейчас запущена
 settings-license = Лицензия
 settings-license-detail = GNU General Public License версии 3 или новее
-settings-license-view = Прочитать лицензию
 settings-source = Исходный код
 settings-source-detail = Исходный код, соответствующий этой сборке
-settings-source-view = Открыть репозиторий
 settings-team = Команда
-settings-team-github = GitHub
 settings-role-lead-maintainer = Ведущий разработчик
 settings-role-maintainer = Разработчик
 settings-role-contributor = Контрибьютор
@@ -758,12 +736,6 @@ settings-notice = Copyright © 2026 Sonora Contributors. Sonora поставля
 theme-system = Системная
 theme-dark = Тёмная
 theme-light = Светлая
-theme-midnight = Полночь
-theme-forest = Лес
-theme-ocean = Океан
-theme-rose = Роза
-theme-lavender = Лаванда
-theme-amber = Янтарь
 
 # corners
 corners-square = Прямые
@@ -779,9 +751,7 @@ pace-slow = Медленно
 pace-base = Обычно
 pace-quick = Быстро
 saver-off = Выкл.
-saver-light = Слабое ({ $fps } FPS)
-saver-medium = Среднее ({ $fps } FPS)
-saver-strong = Сильное ({ $fps } FPS)
+saver-fps = { $fps } FPS
 
 toast-playlist-created = Плейлист создан
 toast-playlist-renamed = Плейлист переименован
@@ -873,3 +843,24 @@ trouble-offline-detail = Проверьте подключение к интер
 trouble-not-loaded = Не удалось загрузить
 trouble-retry = Повторить
 toast-offline = Нет соединения. Ничего не будет воспроизводиться, пока оно не вернётся.
+toast-offline-unsupported = { $name } не поддерживает офлайн-воспроизведение, поэтому скачанные треки играют только при подключении.
+toast-downloading = Скачивание { $name }
+toast-downloading-songs = { $count ->
+    [one] Скачивание { $count } трека
+   *[other] Скачивание { $count } треков
+}
+toast-downloaded = Скачано: { $name }
+toast-downloaded-songs = { $count ->
+    [one] Скачан { $count } трек
+    [few] Скачано { $count } трека
+   *[other] Скачано { $count } треков
+}
+toast-download-set-failed = Не удалось скачать часть треков из { $name }
+toast-download-song-failed = Не удалось скачать { $name }
+toast-download-songs-failed = Не удалось скачать часть треков
+toast-percent = { $percent }%
+toast-download-cancelled = Отменено скачивание { $name }
+toast-downloads-cancelled = { $count ->
+    [one] Отменено скачивание { $count } трека
+   *[other] Отменено скачивание { $count } треков
+}
