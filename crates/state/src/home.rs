@@ -41,9 +41,6 @@ pub struct Home {
     picks_seed: u64,
     sections: Rc<Vec<GenreSection>>,
     feeding: bool,
-    /// Whether the user asked for the feed again, so what comes back lands on the page even
-    /// while it is in sight.
-    refreshing: bool,
     /// Why the last fetch brought nothing, kept until a lot lands.
     error: Option<String>,
     /// How many fetches have ended with no feed at all since the last sign-in.
@@ -100,7 +97,6 @@ impl Home {
             picks_seed,
             sections: Rc::new(Vec::new()),
             feeding: false,
-            refreshing: false,
             error: None,
             failures: 0,
             visible: false,
@@ -137,17 +133,6 @@ impl Home {
         self.feed(cx);
     }
 
-    /// Asks the provider for the feed again because the user asked for it rather than because a
-    /// fetch failed, and lets what comes back replace the page even while it is in sight.
-    pub fn refresh(&mut self, cx: &mut Context<Self>) {
-        self.failures = 0;
-        self.refreshing = true;
-        if !self.feeding {
-            self.feed(cx);
-        }
-        cx.notify();
-    }
-
     fn client(&self, cx: &App) -> Option<Arc<dyn MusicApi>> {
         let session = self.session.read(cx);
         if session.guest() && session.local_client().is_some() {
@@ -178,7 +163,6 @@ impl Home {
         self.quick_picks = Rc::new(Vec::new());
         self.sections = Rc::new(Vec::new());
         self.feeding = false;
-        self.refreshing = false;
         self.error = None;
         self.failures = 0;
         self.pending = None;
@@ -201,7 +185,7 @@ impl Home {
     }
 
     pub fn feed(&mut self, cx: &mut Context<Self>) {
-        if self.feeding || (!self.sections.is_empty() && !self.refreshing) {
+        if self.feeding || !self.sections.is_empty() {
             return;
         }
         let Some(client) = self.client(cx) else {
@@ -253,15 +237,6 @@ impl Home {
     fn land(&mut self, feed: HomeFeed, cx: &mut Context<Self>) {
         self.error = None;
         Network::reached(cx);
-
-        // The user asked for this feed, so it lands as it is rather than waiting for the page to
-        // be left: a button that does nothing until the page changes would read as broken.
-        if self.refreshing {
-            self.pending = None;
-            self.take(feed, cx);
-            return;
-        }
-
         if !self.visible {
             self.pending = None;
             self.take(feed, cx);
@@ -358,7 +333,6 @@ impl Home {
     /// since a provider's home is the kind of call that fails for a moment and then works.
     fn fed(&mut self, cx: &mut Context<Self>) {
         self.feeding = false;
-        self.refreshing = false;
         self.mix(cx);
         if self.sections.is_empty() && self.recent.is_empty() {
             if let Some(&after) = RETRIES.get(self.failures) {
