@@ -2772,6 +2772,18 @@ fn place_lyrics_provider(
     true
 }
 
+impl AppSettings {
+    /// Whether pages float over a cover-tinted background instead of bordered boxes.
+    pub fn immersive(&self) -> bool {
+        self.values.appearance.immersive
+    }
+
+    pub fn set_immersive(&mut self, immersive: bool, cx: &mut Context<Self>) {
+        self.values.appearance.immersive = immersive;
+        self.schedule_save(cx);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::atomic::{AtomicU64, Ordering};
@@ -3091,17 +3103,5 @@ mod tests {
             &SLUGS
         ));
         assert_eq!(pinned.len(), 2);
-    }
-}
-
-impl AppSettings {
-    /// Whether pages float over a cover-tinted background instead of bordered boxes.
-    pub fn immersive(&self) -> bool {
-        self.values.appearance.immersive
-    }
-
-    pub fn set_immersive(&mut self, immersive: bool, cx: &mut Context<Self>) {
-        self.values.appearance.immersive = immersive;
-        self.schedule_save(cx);
     }
 }

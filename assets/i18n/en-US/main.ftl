@@ -428,6 +428,7 @@ home-playlists = Playlists
 home-favorite-albums = Favorite albums
 home-artists = Artists
 home-collection-albums = Albums from your collection
+home-refresh = Refresh
 
 # search page
 search-placeholder = What do you want to listen to?
