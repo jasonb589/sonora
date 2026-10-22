@@ -363,7 +363,11 @@ impl Lyrics {
             .map(|provider| provider.name())
             .filter(|name| settings.lyrics_provider_enabled(name))
             .collect();
-        let asked = self.asked(&id, cx);
+        let mut asked = self.asked(&id, cx);
+        // Offline mode reads a file's own lyrics and what the cache kept, and asks no service.
+        if crate::Network::offline(cx) {
+            asked.retain(|provider| provider.name() == LOCAL);
+        }
         let remembered = self.recall(&id);
         let stored = remembered.is_none().then(|| self.stored(&id, cx));
         let query = self.query(&track, &id, cx);

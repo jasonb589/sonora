@@ -75,7 +75,7 @@ impl Home {
                     this.reload(cx);
                 }
             }
-            SessionEvent::Reconnected => {}
+            SessionEvent::Reconnected | SessionEvent::WentOffline => {}
         })
         .detach();
 

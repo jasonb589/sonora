@@ -19,8 +19,8 @@ use i18n::t;
 use music::{Shape, Track};
 use router::{Destination, LibraryTab, navigate};
 use state::{
-    Addition, AppSettings, DownloadsChanged, Library, LibraryPart, LibraryState, Origin, Playback,
-    Scan, Shelf, Sonora,
+    Addition, AppSettings, DownloadsChanged, Library, LibraryPart, LibraryState, Network, Origin,
+    Playback, Scan, Shelf, Sonora,
 };
 use ui::{
     ActiveTheme as _, Button, Card, Deck, FilterChange, LEADING, Mode, Pinnable, Popovers, Popup,
@@ -177,8 +177,9 @@ impl Tracks for ShelfTracks {
     }
 }
 
+/// Whether a section is still waiting for rows.
 fn loading(library: &Entity<Library>, shelf: Shelf, section: Section, cx: &App) -> bool {
-    library.read(cx).loading(shelf, section.part())
+    library.read(cx).waiting(shelf, section.part(), cx)
 }
 
 pub struct LibraryView {
@@ -253,6 +254,7 @@ impl LibraryView {
             .from(move |_| Some(from.clone()))
             .with_liked(library.clone())
             .starrable(shelf)
+            .shelved(shelf)
             .table(cx.weak_entity());
             let mut delegate =
                 TableDelegate::new(source, width, cx).with_sort(TrackField::AddedAt, RECENT, cx);
@@ -312,12 +314,20 @@ impl LibraryView {
         // progress, which would drop the open menu and the selection every time.
         let downloads = Sonora::global(cx).downloads.clone();
         cx.subscribe(&downloads, |this, _, _: &DownloadsChanged, cx| {
+            let kept = Network::downloads_only(this.shelf, cx);
             for table in this.tables() {
-                if table.narrowed(cx) {
+                if kept || table.narrowed(cx) {
                     table.rebuild(cx);
                 }
             }
             this.cards_dirty = true;
+            cx.notify();
+        })
+        .detach();
+
+        // Offline mode keeps the shelf to its downloads, so turning it on or off filters again.
+        cx.observe(&Network::global(cx), |this, _, cx| {
+            this.rebuild(cx);
             cx.notify();
         })
         .detach();
@@ -536,12 +546,24 @@ impl LibraryView {
         if loading(&self.library, self.shelf, self.section, cx) {
             return None;
         }
+        // Offline mode lists only what was downloaded, and with nothing there it says why.
+        if Network::downloads_only(self.shelf, cx) {
+            let table = self.table(self.section);
+            return match (table.row_count(cx), table.filtering(cx)) {
+                (0, false) => Some(trouble::offline()),
+                (0, true) => Some(Vacancy::new(t!("library-no-matches"))),
+                _ => None,
+            };
+        }
+        if loading(&self.library, self.shelf, self.section, cx) {
+            return None;
+        }
         let library = self.library.read(cx);
         let table = self.table(self.section);
         match library.state(self.shelf) {
             LibraryState::Loading => return None,
             LibraryState::Failed(reason) => {
-                return Some(self.lost("library-lost", t!("library-not-loaded"), reason));
+                return Some(self.lost("library-lost", t!("library-not-loaded"), reason, cx));
             }
             _ if table.row_count(cx) > 0 => return None,
             _ => {}
@@ -552,9 +574,12 @@ impl LibraryView {
 
         Some(match (table.filtering(cx), problem) {
             (true, _) => Vacancy::new(t!("library-no-matches")),
-            (false, Some(reason)) => {
-                self.lost("library-part-lost", t!("library-part-not-loaded"), reason)
-            }
+            (false, Some(reason)) => self.lost(
+                "library-part-lost",
+                t!("library-part-not-loaded"),
+                reason,
+                cx,
+            ),
             (false, None) => {
                 Vacancy::new(i18n::lookup(self.section.vacancy(self.shelf, shape), None))
                     .icon(self.section.glyph(shape))
@@ -563,13 +588,19 @@ impl LibraryView {
     }
 
     /// The state a shelf that did not load shows, with a button that loads it again.
-    fn lost(&self, id: &'static str, label: SharedString, reason: &str) -> Vacancy {
+    fn lost(&self, id: &'static str, label: SharedString, reason: &str, cx: &App) -> Vacancy {
         let library = self.library.clone();
         let shelf = self.shelf;
 
-        trouble::lost(id, label, Some(reason), move |_, _, cx| {
-            library.update(cx, |library, cx| library.refresh(shelf, cx));
-        })
+        trouble::lost(
+            id,
+            label,
+            Some(reason),
+            move |_, _, cx| {
+                library.update(cx, |library, cx| library.refresh(shelf, cx));
+            },
+            cx,
+        )
     }
 
     pub fn refresh(&mut self, cx: &mut Context<Self>) {

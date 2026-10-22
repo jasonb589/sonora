@@ -7,6 +7,41 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.44.1] - 2026-10-22
+
+### Added
+
+- Offline mode in Settings → Storage keeps Sonora to what you downloaded. Your library lists only
+  downloaded songs, albums, playlists and the artists on them, and a page with nothing
+  downloaded says you are offline, with a Go online button that turns the mode off. Turning it
+  on stops streaming, downloads and lyrics lookups, and a downloaded song keeps playing. It
+  stays on across restarts, and Sonora signs in again once you go online.
+- Sonora keeps your previous preferences in `sonora.backup.json` beside `settings.json` each
+  time you change them, so you can get them back if something goes wrong.
+
+### Changed
+
+- Every language Sonora ships is now translated in full, so downloads, the equalizer, Jam,
+  scrobbling and the newer settings no longer show up in English.
+- The download mark beside a song sits on a filled disc, and its ring fades once the download
+  lands. The heart of a song you have not saved is dimmed to match.
+- Sort and column menus only offer columns the list has something in, so an Apple Music
+  playlist no longer offers to sort by a date added it does not have.
+- Apple Music signs in about a second after launch instead of taking up to a minute, because
+  Sonora now keeps the token it needs between launches.
+
+### Fixed
+
+- Saving preferences no longer risks leaving `settings.json` empty or cut short if Sonora closes
+  during the save. If the file is already empty, changing a preference saves it again.
+- Songs that cannot play right now, such as Apple Music downloads in offline mode, are greyed
+  out and say why when you point at them. Picking one no longer swaps your queue while the
+  previous song keeps playing.
+- Album and playlist pages opened while Sonora is still signing in, and your library in offline
+  mode, show placeholders while they load instead of an empty page or No matches.
+- The player bar previews in Settings match the real player bar again, with square covers and
+  the centered layout's scrubber.
+
 ## [0.44.0] - 2026-10-22
 
 ### Added
@@ -2269,7 +2304,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Initial release: a native Spotify client with playback, an interactive queue, the saved library,
 search, album, playlist, artist and song pages, context menus and adaptive theming.
 
-[unreleased]: https://github.com/sonorahq/sonora/compare/v0.44.0...HEAD
+[unreleased]: https://github.com/sonorahq/sonora/compare/v0.44.1...HEAD
+[0.44.1]: https://github.com/sonorahq/sonora/compare/v0.44.0...v0.44.1
 [0.44.0]: https://github.com/sonorahq/sonora/compare/v0.43.0...v0.44.0
 [0.43.0]: https://github.com/sonorahq/sonora/compare/v0.42.2...v0.43.0
 [0.42.2]: https://github.com/sonorahq/sonora/compare/v0.42.1...v0.42.2

@@ -149,6 +149,7 @@ impl UserView {
                     let id = id.clone();
                     profile.update(cx, |profile, cx| profile.open(&id, cx));
                 },
+                cx,
             )
             .size_full()
             .into_any_element(),

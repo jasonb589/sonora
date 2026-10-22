@@ -78,28 +78,28 @@ fn sketch(layout: PlayerBarLayout, transparent: bool, cx: &App) -> Div {
     };
     let (cover, title, artist, controls, seek, sound) = match layout {
         PlayerBarLayout::Classic => (
-            [0.04, 0.20, 0.13, 0.60],
-            [0.21, 0.28, 0.17, 0.08],
-            [0.21, 0.48, 0.12, 0.06],
+            [0.04, 0.15, 0.70],
+            [0.18, 0.28, 0.17, 0.08],
+            [0.18, 0.48, 0.12, 0.06],
             [0.46, 0.20, 0.21, 0.34],
             [0.41, 0.77, 0.32, 0.05],
             [0.82, 0.48, 0.13, 0.05],
         ),
         PlayerBarLayout::Compact => (
-            [0.04, 0.20, 0.08, 0.60],
-            [0.15, 0.25, 0.12, 0.10],
-            [0.15, 0.56, 0.09, 0.08],
+            [0.04, 0.15, 0.70],
+            [0.13, 0.25, 0.12, 0.10],
+            [0.13, 0.56, 0.09, 0.08],
             [0.33, 0.26, 0.17, 0.46],
             [0.55, 0.48, 0.22, 0.08],
             [0.82, 0.48, 0.13, 0.08],
         ),
         PlayerBarLayout::Centered => (
-            [0.04, 0.25, 0.13, 0.50],
-            [0.43, 0.15, 0.20, 0.07],
-            [0.46, 0.35, 0.14, 0.05],
-            [0.20, 0.36, 0.19, 0.28],
-            [0.35, 0.72, 0.30, 0.04],
-            [0.82, 0.48, 0.13, 0.04],
+            [0.04, 0.15, 0.70],
+            [0.40, 0.29, 0.20, 0.08],
+            [0.43, 0.44, 0.14, 0.06],
+            [0.16, 0.36, 0.12, 0.28],
+            [0.38, 0.65, 0.24, 0.05],
+            [0.82, 0.48, 0.13, 0.05],
         ),
     };
     let panel = div()
@@ -113,7 +113,7 @@ fn sketch(layout: PlayerBarLayout, transparent: bool, cx: &App) -> Div {
             true => ui::popover_surface(panel, cx),
             false => panel.bg(theme.secondary),
         })
-        .child(tile(cover, theme.primary.opacity(0.6), radius))
+        .child(artwork(cover, theme.primary.opacity(0.6), radius))
         .child(tile(title, ink, radius))
         .child(tile(artist, muted, radius))
         .child(transport(controls, cx))
@@ -152,9 +152,24 @@ fn tile([left, top, width, height]: [f32; 4], fill: Hsla, radius: Pixels) -> Div
         .bg(fill)
 }
 
+/// The cover in a miniature. It is square whatever the panel's proportions, so only its left
+/// edge, top edge and height are given.
+fn artwork([left, top, height]: [f32; 3], fill: Hsla, radius: Pixels) -> Div {
+    div()
+        .absolute()
+        .left(relative(left))
+        .top(relative(top))
+        .h(relative(height))
+        .aspect_square()
+        .rounded(radius)
+        .bg(fill)
+}
+
 /// Muted abstract button marks suggest the controls without reproducing detailed live icons.
+/// They sit close together in the middle of their slot, as the real buttons do.
 fn transport([left, top, width, height]: [f32; 4], cx: &App) -> Div {
     let theme = cx.theme();
+    let mark = theme.metrics.control_small * 0.22;
     div()
         .absolute()
         .left(relative(left))
@@ -163,10 +178,11 @@ fn transport([left, top, width, height]: [f32; 4], cx: &App) -> Div {
         .h(relative(height))
         .flex()
         .items_center()
-        .justify_between()
+        .justify_center()
+        .gap(mark * 0.8)
         .children((0..3).map(|_| {
             div()
-                .size(theme.metrics.control_small * 0.22)
+                .size(mark)
                 .rounded(theme.radius * 0.15)
                 .bg(theme.muted_foreground.opacity(0.45))
         }))

@@ -14,6 +14,7 @@ pub use self::themes::{ThemeFamily, ThemeVariant};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -332,6 +333,9 @@ struct Values {
     keep_tracks: bool,
     /// How many gigabytes the cache of played tracks may take. Downloads do not count.
     cache_gb: u32,
+    /// Whether the listener put Sonora offline, so it shows and plays only what was downloaded
+    /// until they go online again.
+    offline_mode: bool,
     equalizer: bool,
     /// The ten band gains an older Sonora saved. Read once to seed the profiles when there are
     /// none, never written back, and read leniently like the keys that replaced it.
@@ -563,6 +567,7 @@ impl Default for Values {
             normalisation: false,
             gapless: true,
             keep_tracks: true,
+            offline_mode: false,
             cache_gb: crate::vault::CACHE_GB,
             equalizer: false,
             equalizer_bands: Vec::new(),
@@ -806,7 +811,7 @@ impl Default for Appearance {
 }
 
 /// Preferences from `settings.json` and runtime state from `state.sqlite`, each saved on its own
-/// debounce. `broken` prevents an invalid JSON file from being overwritten with defaults.
+/// debounce. `broken` protects nonempty invalid JSON from being overwritten with defaults.
 pub struct AppSettings {
     values: Values,
     state: StateValues,
@@ -859,6 +864,9 @@ impl AppSettings {
         let parsed = parsed.map(|(values, bytes)| (values.map(offer_subsonic_lyrics), bytes));
         let (values, writable, disk, broken) = match parsed {
             Some((Ok(values), bytes)) => (values.settled(), writable, Some(bytes), None),
+            Some((Err(_), bytes)) if empty_settings(&bytes) => {
+                (Values::default().settled(), writable, Some(bytes), None)
+            }
             Some((Err(error), _)) => {
                 log::warn!("settings: cannot parse {}: {error}", path.display());
                 (Values::default().settled(), false, None, Some(error.line()))
@@ -939,6 +947,10 @@ impl AppSettings {
     pub fn cache_gb(&self) -> u32 {
         let (low, high) = crate::vault::CACHE_GB_RANGE;
         self.values.cache_gb.clamp(low, high)
+    }
+
+    pub fn offline_mode(&self) -> bool {
+        self.values.offline_mode
     }
 
     /// Whether Sonora shows up as a Spotify Connect device while a Spotify account is signed in.
@@ -1437,6 +1449,11 @@ impl AppSettings {
 
     pub fn set_keep_tracks(&mut self, keep_tracks: bool, cx: &mut Context<Self>) {
         self.values.keep_tracks = keep_tracks;
+        self.schedule_save(cx);
+    }
+
+    pub fn set_offline_mode(&mut self, offline_mode: bool, cx: &mut Context<Self>) {
+        self.values.offline_mode = offline_mode;
         self.schedule_save(cx);
     }
 
@@ -2241,22 +2258,9 @@ impl AppSettings {
             }
             return SettingsSave::Complete;
         }
-        // the file can hold scrobbling keys, so on unix only its owner may read it
-        let mut options = fs::OpenOptions::new();
-        options.write(true).create(true).truncate(true);
-        #[cfg(unix)]
-        std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-        let written = options.open(&self.path).and_then(|mut file| {
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt as _;
-                file.set_permissions(fs::Permissions::from_mode(0o600)).ok();
-            }
-            std::io::Write::write_all(&mut file, &bytes)
-        });
-        if let Err(error) = written {
-            log::error!("settings: cannot write {}: {error}", self.path.display());
-            return SettingsSave::Retry(error.to_string());
+        if let Err(error) = save_settings(&self.path, &bytes, current.as_deref()) {
+            log::error!("settings: cannot write {}: {error:#}", self.path.display());
+            return SettingsSave::Retry(format!("{error:#}"));
         }
         self.disk = Some(bytes);
         self.failing = false;
@@ -2420,7 +2424,8 @@ impl AppSettings {
         }
     }
 
-    /// Accepts a valid external settings write and protects a broken file from app saves.
+    /// Accepts valid external settings, treats an empty file like a deletion, and protects
+    /// nonempty broken files from app saves.
     fn reload_settings(&mut self, cx: &mut Context<Self>) -> SettingsReload {
         let bytes = match fs::read(&self.path) {
             Ok(bytes) => bytes,
@@ -2440,6 +2445,12 @@ impl AppSettings {
             }
         };
         if self.disk.as_ref() == Some(&bytes) && self.broken.is_none() {
+            self.writable = true;
+            self.broken = None;
+            return SettingsReload::Unchanged;
+        }
+        if empty_settings(&bytes) {
+            self.disk = Some(bytes);
             self.writable = true;
             self.broken = None;
             return SettingsReload::Unchanged;
@@ -2520,6 +2531,11 @@ fn overrides(current: &[u8], ours: &[u8]) -> bool {
 /// front of it on Windows, which serde_json rejects as an unexpected character.
 fn json(bytes: &[u8]) -> &[u8] {
     bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes)
+}
+
+/// Whether a file contains no settings to protect, allowing a later preference change to save.
+fn empty_settings(bytes: &[u8]) -> bool {
+    json(bytes).iter().all(u8::is_ascii_whitespace)
 }
 
 /// A saved provider list replaces the default one, so Subsonic reaches an existing user once.
@@ -2644,6 +2660,73 @@ fn absolute_path(path: &Path) -> PathBuf {
     std::env::current_dir()
         .map(|directory| directory.join(path))
         .unwrap_or_else(|_| path.to_owned())
+}
+
+/// Keeps the previous valid settings in `sonora.backup.json` before saving a new version.
+/// Unchanged saves and empty or broken previous files leave the backup alone. The caller must
+/// check that `previous` still matches the last contents it accepted from disk.
+fn save_settings(path: &Path, bytes: &[u8], previous: Option<&[u8]>) -> Result<()> {
+    if previous == Some(bytes) {
+        return Ok(());
+    }
+    if let Some(previous) =
+        previous.filter(|previous| serde_json::from_slice::<Values>(json(previous)).is_ok())
+    {
+        write_settings(&path.with_file_name("sonora.backup.json"), previous)
+            .context("cannot back up settings")?;
+    }
+    write_settings(path, bytes)
+}
+
+/// Replaces settings with a synced file beside the destination, so an interrupted save leaves
+/// the previous contents intact. Symlinks keep pointing to their target. The file can hold
+/// scrobbling keys, so on unix only its owner may read it.
+fn write_settings(path: &Path, bytes: &[u8]) -> Result<()> {
+    let path = match fs::symlink_metadata(path) {
+        Ok(metadata) if metadata.file_type().is_symlink() => {
+            fs::canonicalize(path).context("cannot resolve settings symlink")?
+        }
+        Ok(_) => path.to_owned(),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => path.to_owned(),
+        Err(error) => return Err(error).context("cannot inspect settings file"),
+    };
+    let parent = path.parent().context("cannot find settings directory")?;
+    match fs::metadata(&path) {
+        Ok(metadata) => anyhow::ensure!(
+            !metadata.permissions().readonly(),
+            "cannot write read-only settings file"
+        ),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => return Err(error).context("cannot read settings permissions"),
+    }
+    let mut temporary = tempfile::Builder::new()
+        .prefix(".settings-")
+        .tempfile_in(parent)
+        .context("cannot create temporary settings file")?;
+    temporary
+        .write_all(bytes)
+        .context("cannot write temporary settings file")?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        temporary
+            .as_file()
+            .set_permissions(fs::Permissions::from_mode(0o600))
+            .context("cannot restrict settings permissions")?;
+    }
+    temporary
+        .as_file()
+        .sync_all()
+        .context("cannot sync temporary settings file")?;
+    temporary
+        .persist(&path)
+        .map_err(|error| error.error)
+        .context("cannot replace settings file")?;
+    #[cfg(unix)]
+    if let Err(error) = fs::File::open(parent).and_then(|folder| folder.sync_all()) {
+        log::debug!("settings: cannot sync {}: {error}", parent.display());
+    }
+    Ok(())
 }
 
 fn settings_path() -> PathBuf {

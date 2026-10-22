@@ -127,9 +127,10 @@ impl Devices {
     ) -> Self {
         cx.subscribe(&session, |this, _, event, cx| match event {
             SessionEvent::LocalChanged => {}
-            SessionEvent::SignedIn | SessionEvent::SignedOut | SessionEvent::Reconnected => {
-                this.relink(cx)
-            }
+            SessionEvent::SignedIn
+            | SessionEvent::SignedOut
+            | SessionEvent::Reconnected
+            | SessionEvent::WentOffline => this.relink(cx),
         })
         .detach();
         cx.observe(&playback, |this, _, cx| this.publish(cx))

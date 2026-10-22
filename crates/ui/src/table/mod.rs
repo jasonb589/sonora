@@ -22,6 +22,7 @@ use crate::pin::{Pin, Pinnable};
 use crate::popup::Popup;
 use crate::skeleton::Skeleton;
 use crate::theme::ActiveTheme as _;
+use crate::tooltip::{Perch, Tipped as _};
 use crate::{Filter, SortAxis};
 
 pub use layout::{ColumnSpec, Layout, Sort, Sorting, Width, rank};
@@ -109,6 +110,12 @@ pub trait TableSource: 'static {
     fn context_menu_will_open(&self, _rows: &[usize], _cx: &App) {}
 
     fn pin(&self, _row: usize, _cx: &App) -> Option<Pin> {
+        None
+    }
+
+    /// Text shown over the whole row the moment the pointer reaches it, following the pointer
+    /// for as long as it stays.
+    fn tip(&self, _row: usize, _cx: &App) -> Option<SharedString> {
         None
     }
 
@@ -413,10 +420,13 @@ impl<S: TableSource> TableDelegate<S> {
         self.reorder(cx);
     }
 
-    pub fn toggles(&self) -> Vec<Toggle> {
+    /// The columns the listener can show or hide. A column the source has nothing for is left
+    /// out, since showing it would draw nothing.
+    pub fn toggles(&self, cx: &App) -> Vec<Toggle> {
         self.source
             .columns()
             .iter()
+            .filter(|spec| self.source.populated(spec.field, cx))
             .map(|spec| Toggle {
                 key: spec.key,
                 label: spec.label(),
@@ -442,12 +452,14 @@ impl<S: TableSource> TableDelegate<S> {
         );
     }
 
-    pub fn sortables(&self) -> Vec<SortAxis> {
+    /// The columns the rows can be sorted by. A column the source has nothing for is left out,
+    /// as it is from the table.
+    pub fn sortables(&self, cx: &App) -> Vec<SortAxis> {
         let active = self.sorting();
         self.source
             .columns()
             .iter()
-            .filter(|spec| spec.sortable)
+            .filter(|spec| spec.sortable && self.source.populated(spec.field, cx))
             .map(|spec| SortAxis {
                 key: spec.key,
                 label: spec.label(),
@@ -1101,6 +1113,9 @@ impl<S: TableSource> TableState<S> {
                         this.hover(move |style| style.bg(theme.table_hover))
                     })
                     .when_some(self.delegate.source.pin(row, cx), Pinnable::pin)
+                    .when_some(self.delegate.source.tip(row, cx), |this, text| {
+                        this.tip_label(text, Perch::Follow)
+                    })
                     .on_mouse_down(
                         MouseButton::Left,
                         cx.listener(move |this, event: &MouseDownEvent, window, cx| {
@@ -1456,7 +1471,7 @@ impl<S: TableSource> Listing for Entity<TableState<S>> {
     }
 
     fn sortables(&self, cx: &App) -> Vec<SortAxis> {
-        self.read(cx).delegate().sortables()
+        self.read(cx).delegate().sortables(cx)
     }
 
     fn cycle_sort(&self, column: &str, cx: &mut App) {
@@ -1469,7 +1484,7 @@ impl<S: TableSource> Listing for Entity<TableState<S>> {
     }
 
     fn toggles(&self, cx: &App) -> Vec<Toggle> {
-        self.read(cx).delegate().toggles()
+        self.read(cx).delegate().toggles(cx)
     }
 
     fn row_count(&self, cx: &App) -> usize {

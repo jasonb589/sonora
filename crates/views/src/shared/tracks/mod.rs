@@ -16,7 +16,7 @@ use gpui::{
 };
 use music::Track;
 use router::Destination;
-use state::{Detail, History, Library, Origin, Playback, Progress, Shelf, Sonora};
+use state::{Detail, History, Library, Network, Origin, Playback, Progress, Shelf, Sonora};
 use ui::{
     ArrowRing, Button, Cell, ColumnSpec, Menu, Pending, Pin, ROW_GROUP, Scrollbar, TableSource,
     TableState,
@@ -34,7 +34,7 @@ pub(crate) use sort::initial;
 
 use sort::hits;
 
-/// How strongly a finished download's mark shows on its row.
+/// How strongly an unsaved track's heart shows on its row.
 const SETTLED: f32 = 0.5;
 
 /// The current track and its `Playback::control`. A screen keeps the last one and redraws only
@@ -165,6 +165,8 @@ pub(crate) struct TrackSource {
     playback: Entity<Playback>,
     is_liked: Option<Entity<Library>>,
     starrable: Option<Shelf>,
+    /// The library shelf the rows are, which offline mode keeps to its downloads.
+    library_shelf: Option<Shelf>,
     album: Option<Entity<Detail>>,
     playlist: Option<Entity<Detail>>,
     history: Option<Entity<History>>,
@@ -211,6 +213,7 @@ impl TrackSource {
             playback,
             is_liked: None,
             starrable: None,
+            library_shelf: None,
             album: None,
             playlist: None,
             history: None,
@@ -277,6 +280,18 @@ impl TrackSource {
     pub(crate) fn starrable(mut self, shelf: Shelf) -> Self {
         self.starrable = Some(shelf);
         self
+    }
+
+    /// Marks the rows as a library shelf, which offline mode keeps to what was downloaded.
+    pub(crate) fn shelved(mut self, shelf: Shelf) -> Self {
+        self.library_shelf = Some(shelf);
+        self
+    }
+
+    /// Whether offline mode keeps these rows to their downloads.
+    fn downloads_only(&self, cx: &App) -> bool {
+        self.library_shelf
+            .is_some_and(|shelf| Network::downloads_only(shelf, cx))
     }
 
     fn catalog(&self, cx: &App) -> bool {
@@ -368,9 +383,21 @@ impl TrackSource {
         )
     }
 
+    /// Whether a row can start playback now, which a track that has to be streamed cannot while
+    /// the network is gone.
+    fn plays_now(&self, track: &Track, cx: &App) -> bool {
+        track.playable
+            && self
+                .playback
+                .read(cx)
+                .unreachable_reason(track, cx)
+                .is_none()
+    }
+
     fn index_cell(&self, cell: &Cell<TrackField>, track: &Track, cx: &App) -> AnyElement {
         let playing = self.now_playing(cell.row, cx);
-        let (preload, press) = match track.playable {
+        let playable = self.plays_now(track, cx);
+        let (preload, press) = match playable {
             false => (None, None),
             true => {
                 let playback = self.playback.clone();
@@ -400,7 +427,7 @@ impl TrackSource {
 
         let number = self.number(track, cx);
 
-        cells::index(cell, playing, track.playable, number, preload, press, cx)
+        cells::index(cell, playing, playable, number, preload, press, cx)
     }
 
     fn title_cell(
@@ -451,7 +478,7 @@ impl TrackSource {
                 })
                 .tint(match saved {
                     true => theme.primary,
-                    false => theme.muted_foreground,
+                    false => theme.muted_foreground.opacity(SETTLED),
                 })
                 .when(!saved, |this| {
                     this.invisible()
@@ -534,7 +561,7 @@ impl TableSource for TrackSource {
             if self.sieve.favorites && !self.starred(track, cx) {
                 return false;
             }
-            if self.sieve.downloaded
+            if (self.sieve.downloaded || self.downloads_only(cx))
                 && !track
                     .id
                     .as_deref()
@@ -581,7 +608,9 @@ impl TableSource for TrackSource {
                 on: self.sieve.favorites,
             }));
         }
-        if self.sieve.downloaded || !Sonora::global(cx).downloads.read(cx).is_empty() {
+        // Offline mode already keeps a shelf to its downloads, so the filter would do nothing.
+        let offered = self.sieve.downloaded || !Sonora::global(cx).downloads.read(cx).is_empty();
+        if offered && !self.downloads_only(cx) {
             axes.push(Filter::Flag(FlagAxis {
                 key: "filter-downloaded",
                 label: t!("filter-downloaded"),
@@ -633,6 +662,18 @@ impl TableSource for TrackSource {
         self.provider.is_loading(cx)
     }
 
+    /// Why a track that has to be streamed cannot play while the network is gone, in the words
+    /// of the toast picking it would raise.
+    fn tip(&self, row: usize, cx: &App) -> Option<SharedString> {
+        let track = self.provider.tracks(cx).get(row)?;
+        let reason = self.playback.read(cx).unreachable_reason(track, cx)?;
+        let mut args = i18n::FluentArgs::new();
+        if let Some(provider) = reason.provider() {
+            args.set("name", i18n::Value::value(provider.as_ref()));
+        }
+        Some(i18n::lookup(reason.key(), Some(&args)))
+    }
+
     fn pending(&self, cx: &App) -> Option<Pending> {
         self.provider.pending(cx)
     }
@@ -652,7 +693,7 @@ impl TableSource for TrackSource {
             return self.index_cell(&cell, track, cx);
         }
         let faded = muted.opacity(0.5);
-        let (title, detail) = match track.playable {
+        let (title, detail) = match self.plays_now(track, cx) {
             true => (None, muted),
             false => (Some(faded), faded),
         };
@@ -733,21 +774,25 @@ impl TableSource for TrackSource {
     }
 }
 
-/// How far a download the listener asked for has got, shown before the heart. A finished one
-/// stays faint so a downloaded list does not shout, and one still waiting its turn shows nothing,
-/// as does a track only cached because it played.
+/// How far a download the listener asked for has got, shown before the heart. The arrow sits on
+/// a filled disc like the explicit badge, the accent ring fades once the download lands, and a
+/// track still waiting its turn or only cached because it played shows nothing.
 fn download_mark(cell: &Cell<TrackField>, track: &Track, cx: &App) -> Option<AnyElement> {
     let id = track.id.as_deref()?;
     let downloads = Sonora::global(cx).downloads.read(cx);
     let theme = cx.theme();
     let mark = ("download-mark", cell.row);
+    let ring = |done| {
+        ArrowRing::new(mark, done)
+            .color(theme.primary)
+            .arrow(theme.muted_foreground)
+            .backdrop(theme.muted)
+    };
     let ring = match downloads.track(id)? {
-        Progress::Done => {
-            ArrowRing::new(mark, Some(1.)).color(theme.muted_foreground.opacity(SETTLED))
-        }
-        Progress::Running => ArrowRing::new(mark, downloads.fraction(id)).color(theme.primary),
+        Progress::Done => ring(Some(1.)),
+        Progress::Running => ring(downloads.fraction(id)),
         Progress::Waiting => return None,
-        Progress::Failed => ArrowRing::new(mark, Some(0.)).color(theme.danger),
+        Progress::Failed => ring(Some(0.)).arrow(theme.danger),
     };
     Some(div().flex_none().child(ring).into_any_element())
 }
