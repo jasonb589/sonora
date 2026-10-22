@@ -13,7 +13,7 @@ pub use client::NavidromeClient;
 pub use lyrics::NavidromeLyrics;
 
 use crate::navidrome::playback::Factory;
-use crate::{Capabilities, MusicApi as _, MusicProvider, ProviderSession, Shape, SignIn};
+use crate::{Capabilities, Catalog, MusicApi as _, MusicProvider, ProviderSession, Shape, SignIn};
 
 pub struct NavidromeProvider;
 
@@ -52,7 +52,7 @@ impl NavidromeProvider {
             profile,
             api: Arc::new(client.clone()),
             playback: Arc::new(Factory::new(client)),
-            shape: Shape::Catalog,
+            shape: Shape::Catalog(Catalog::Fixed),
             authenticated: true,
             capabilities: Capabilities::ALL,
         })
@@ -81,7 +81,7 @@ impl NavidromeProvider {
                     profile,
                     api: Arc::new(client.clone()),
                     playback: Arc::new(Factory::new(client)),
-                    shape: Shape::Catalog,
+                    shape: Shape::Catalog(Catalog::Fixed),
                     authenticated: true,
                     capabilities: Capabilities::ALL,
                 }))
