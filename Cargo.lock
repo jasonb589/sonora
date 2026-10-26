@@ -4302,6 +4302,7 @@ dependencies = [
  "time",
  "tokio",
  "widevine",
+ "windows 0.62.2",
  "ytmusic",
 ]
 
@@ -9832,7 +9833,7 @@ dependencies = [
 [[package]]
 name = "ytmusic"
 version = "0.1.0"
-source = "git+https://github.com/sonorahq/ytmusic-rs?rev=ce50b13#ce50b133ebfabcb4e1699b671111cbd4a8fb1a9e"
+source = "git+https://github.com/sonorahq/ytmusic-rs?rev=8553a96#8553a967e9ab980e4f94283821e3f6c698b7c40c"
 dependencies = [
  "anyhow",
  "async-trait",
