@@ -265,7 +265,6 @@ view-list = 列表
 view-cards = 网格
 
 # toolbar
-tool-columns = 列
 tool-sort = 排序
 tool-filters = 筛选
 
@@ -1361,3 +1360,24 @@ response-graph-readout = { $frequency } · { $direction ->
             [down] -{ $gain }
            *[flat] { $gain }
         } dB
+
+# themes
+settings-theme-explore = 浏览社区主题
+settings-theme-explore-detail = 找到别人制作的主题，一键安装
+settings-theme-delete = 删除主题
+settings-theme-delete-title = 删除 { $name }？
+settings-theme-delete-detail = 会把它从你的主题文件夹中移除，无法撤销。
+theme-install-title = 安装 { $name }？
+theme-install-detail = 会把它添加到你的主题文件夹。
+theme-install-confirm = 安装
+toast-theme-link-unreadable = 这个主题链接已损坏，或者里面不是主题
+toast-theme-install-failed = 无法安装 { $name }
+toast-theme-delete-failed = 无法删除 { $name }
+
+# updates
+settings-update-channel = 更新通道
+settings-update-channel-detail = 稳定版跟随正式发布；每夜版跟随每天构建的 main，能更早拿到改动，测试也更少
+update-channel-stable = 稳定版
+update-channel-nightly = 每夜版
+toast-keys-error = 播放快捷键出错
+toast-why = 为什么？
