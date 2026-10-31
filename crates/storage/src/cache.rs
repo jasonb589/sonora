@@ -144,6 +144,17 @@ impl Cache {
             .context("cannot trim cached lyrics")?;
         transaction.commit().context("cannot save cached lyrics")
     }
+
+    /// Drops the sheet stored for one track, so a lookup asks its sources again instead of being
+    /// answered from what they said the first time.
+    pub fn forget_lyrics(&self, key: &str) -> Result<()> {
+        let connection = self.open()?;
+        connection
+            .execute("DELETE FROM lyrics WHERE key = ?", params![key])
+            .context("cannot drop cached lyrics")?;
+        Ok(())
+    }
+
     /// A connection with every cache table in place. The local scan index reaches for this
     /// directly, the way local playlists do with [`crate::Database`].
     pub fn open(&self) -> Result<rusqlite::Connection> {

@@ -8,9 +8,15 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use music::{Lyrics as Sheet, LyricsHit};
 use serde::{Deserialize, Serialize};
 
-const VERSION: u32 = 5;
+/// The format a sheet is written in. A bump drops every sheet an older run stored, which is how
+/// a change to what a sheet means reaches the sheets already on disk.
+const VERSION: u32 = 6;
 const PASSING: bool = cfg!(debug_assertions);
 const CAPACITY: usize = 500;
+/// How long a stored sheet is trusted. A service is never asked again for a track it has
+/// answered, so without this a lyric rewritten on the server would keep the first answer for
+/// good: a week saves the requests and still notices an edit.
+const STALE: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 /// Everything the services said about one track. A service in `answered` replied, even if it had
 /// nothing, so a lookup asks it again only while nothing usable is stored. One that failed is
@@ -80,6 +86,12 @@ impl Sheets {
         let kept: Kept = serde_json::from_str(&value)
             .inspect_err(|error| log::warn!("lyrics: cannot read the cached sheet: {error}"))
             .ok()?;
+
+        let age = now().saturating_sub(kept.stored);
+        if age > STALE.as_secs() {
+            log::debug!("lyrics: the stored sheet is {age}s old; asking the sources again");
+            return None;
+        }
         let answered = kept
             .answered
             .iter()
@@ -91,6 +103,16 @@ impl Sheets {
             .filter_map(|held| held.hit(known))
             .collect();
         Some((hits, answered))
+    }
+
+    /// Drops the sheet stored for `key`, so the next lookup asks its sources again.
+    pub(crate) fn forget(&self, key: &str) {
+        if PASSING {
+            return;
+        }
+        if let Err(error) = self.cache.forget_lyrics(key) {
+            log::warn!("lyrics: cannot drop the cached sheet: {error:#}");
+        }
     }
 
     /// An answer to store under `key`, stamped with the time it was found.
