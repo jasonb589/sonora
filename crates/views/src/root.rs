@@ -571,6 +571,10 @@ impl Root {
     /// ignore it. A page still loading ignores it too, so a held key or repeated presses cannot
     /// keep restarting the load. The title-bar button turns until the page has its data.
     fn refresh(&mut self, cx: &mut Context<Self>) {
+        // The song on screen is asked again as well: a lyric rewritten on the server is
+        // otherwise answered from the copy the last lookup stored.
+        let lyrics = Sonora::global(cx).lyrics.clone();
+        lyrics.update(cx, |lyrics, cx| lyrics.reload(cx));
         let destination = router::trail(cx).read(cx).current();
         let Some(busy) = self.loading(&destination, cx) else {
             return;

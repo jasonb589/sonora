@@ -36,6 +36,9 @@ pub struct Lyrics {
     following: Option<String>,
     /// The answers looked at most recently, newest first.
     recent: VecDeque<(String, Found)>,
+    /// The track whose stored sheet is ignored while its sources are asked again: a lyric that
+    /// changed on the server is otherwise answered from what it said the first time round.
+    dropped: Option<String>,
     store: Sheets,
     /// Answers found since the last save, written together once lookups go quiet.
     unsaved: Vec<Unsaved>,
@@ -104,6 +107,7 @@ impl Lyrics {
             revision: 0,
             following: None,
             recent: VecDeque::new(),
+            dropped: None,
             store,
             unsaved: Vec::new(),
             providers,
@@ -139,6 +143,32 @@ impl Lyrics {
 
     pub fn revision(&self) -> u64 {
         self.revision
+    }
+
+    /// Asks every source again for the track on screen, dropping the answer held in memory and
+    /// the one in the cache database. A source that has answered is never asked a second time,
+    /// so a lyric rewritten on the server would otherwise keep its first answer for good.
+    pub fn reload(&mut self, cx: &mut Context<Self>) {
+        let Some(id) = self.following.clone() else {
+            return;
+        };
+        let Some(track) = self.playback.read(cx).shown_track(cx) else {
+            return;
+        };
+        if track.id.as_deref() != Some(id.as_str()) {
+            return;
+        }
+        self.recent.retain(|(held, _)| *held != id);
+        self.task = None;
+        self.ahead = None;
+        self.ahead_of = None;
+        self.dropped = Some(id.clone());
+        let key = self.key(&id, cx);
+        let store = self.store.clone();
+        cx.background_executor()
+            .spawn(async move { store.forget(&key) })
+            .detach();
+        self.load(id, track, cx);
     }
 
     pub fn choose(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -371,7 +401,8 @@ impl Lyrics {
             asked.retain(|provider| provider.name() == LOCAL);
         }
         let remembered = self.recall(&id);
-        let stored = remembered.is_none().then(|| self.stored(&id, cx));
+        let skipping = self.dropped.as_deref() == Some(id.as_str());
+        let stored = (remembered.is_none() && !skipping).then(|| self.stored(&id, cx));
         let query = self.query(&track, &id, cx);
         let io = self.io.clone();
         cx.spawn(async move |this, cx| {
@@ -555,6 +586,11 @@ impl Lyrics {
         answered: Vec<&'static str>,
         cx: &mut Context<Self>,
     ) {
+        // The track was asked again on purpose, so what the cache holds for it is not skipped
+        // over any more.
+        if self.dropped.as_deref() == Some(id.as_str()) {
+            self.dropped = None;
+        }
         // A file's own lyrics are read again on every play, so they are never kept.
         if !self.online(&id, cx) {
             return;
