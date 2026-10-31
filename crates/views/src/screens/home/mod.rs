@@ -118,9 +118,8 @@ impl HomeView {
         home.is_loading(cx) || home.is_feeding()
     }
 
-    /// The Quick picks deck, headed by the name of the account it was drawn from. It is the
-    /// one deck on the page: what the provider lists as played lately and its picks after
-    /// them, a skeleton while they are on their way.
+    /// The Quick picks deck, the one deck on the page: what the provider lists as played lately
+    /// and its picks after them, a skeleton while they are on their way.
     fn quick_picks(&mut self, width: Pixels, cx: &mut Context<Self>) -> AnyElement {
         let items = self.home.read(cx).quick_picks();
         let shape = Shape::new(width, items.len());

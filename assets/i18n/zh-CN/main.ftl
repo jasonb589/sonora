@@ -146,7 +146,6 @@ menu-play-tracks-last = { $count ->
    *[other] 最后播放 { $count } 首歌曲
 }
 menu-song-radio = 前往歌曲电台
-menu-go-to-album = 前往专辑
 menu-go-to-artist = 前往歌手
 menu-view-details = 查看详情
 menu-copy-link = 复制链接
@@ -155,7 +154,6 @@ menu-copy = 复制
 menu-paste = 粘贴
 menu-select-all = 全选
 menu-remove-from-queue = 从播放队列中移除
-menu-rename-playlist = 重命名播放列表
 menu-delete-playlist = 删除播放列表
 menu-add-playlist-to-library = 添加到音乐库
 menu-remove-playlist-from-library = 从音乐库中移除
@@ -176,7 +174,6 @@ menu-play-artist = 播放歌手
 # playlist editor
 playlist-name-placeholder = 播放列表名称
 playlist-create-title = 创建播放列表
-playlist-rename-title = 重命名播放列表
 playlist-delete-title = 删除播放列表
 playlist-delete-confirm = 删除“{ $name }”？此操作无法撤销。
 playlist-again-title = 再次添加？
@@ -1381,3 +1378,100 @@ update-channel-stable = 稳定版
 update-channel-nightly = 每夜版
 toast-keys-error = 播放快捷键出错
 toast-why = 为什么？
+
+
+# common
+option-variants = { $name } 的变体
+table-sorted-ascending = 已按升序排序
+table-sorted-descending = 已按降序排序
+range-from = 从
+range-to = 到
+rail-back = 向左翻
+rail-forward = 向右翻
+
+# app menu
+window-maximize = 最大化
+window-restore = 还原
+
+# track menu
+menu-import-playlist = 导入播放列表…
+menu-go-to = 前往
+menu-artist = 歌手
+menu-album = 专辑
+menu-radio = 电台
+menu-details = 详情
+menu-edit-playlist = 编辑播放列表
+menu-export-playlist = 导出播放列表…
+
+# playlist editor
+playlist-edit-title = 编辑播放列表
+playlist-cover-choose = 选择图片
+playlist-cover-remove = 移除封面
+playlist-cover-unopenable = Sonora 无法打开这个文件
+playlist-cover-too-large = 这张图片超过 40 MB
+playlist-cover-not-a-picture = 这个文件不是 JPEG、PNG 或 WebP 图片
+
+# player bar
+devices-jam-people = { $count ->
+    [one] 这个一起听里有 { $count } 人
+   *[other] 这个一起听里有 { $count } 人
+    }
+devices-jam-remove-member = 移除 { $name }
+fullscreen-panels = 正在播放视图
+
+# login
+login-providers = 音乐服务
+
+# home page
+home-recently-played = 最近播放
+
+# search page
+search-submit = 搜索
+search-recent = 最近搜索
+search-forget = 从历史记录中移除
+
+# song page
+track-row-name = { $title }，{ $artists }
+
+# where a search result lives: a drill-in page under the page it opens from
+settings-font-smaller = 更小的文字
+settings-font-larger = 更大的文字
+
+# the Discord status when the track is left out of it
+settings-sample-rate-lower = 降低采样率
+settings-sample-rate-higher = 提高采样率
+settings-buffer-smaller = 减小缓冲区
+settings-buffer-larger = 增大缓冲区
+settings-signal-path = 信号路径
+equalizer-filter = 滤波器 { $number }
+equalizer-filter-kind = 滤波器 { $number } 的类型
+equalizer-mode = 模式
+equalizer-preamp-level = 前置增益电平
+equalizer-no-gain-spoken = 无增益
+equalizer-filter-frequency = 滤波器 { $number } 的频率
+equalizer-filter-gain = 滤波器 { $number } 的增益
+equalizer-filter-width = 滤波器 { $number } 的宽度
+equalizer-graph = 频率响应
+equalizer-graph-detail = { $count ->
+    [0] 没有滤波器
+    [one] 1 个滤波器
+   *[other] { $count } 个滤波器
+    }，前置增益 { $db } dB
+equalizer-rule-device = 设备
+
+# motion
+toast-playlist-updated = 播放列表已更新
+toast-playlist-cover-changed = 播放列表封面已更换
+toast-playlist-cover-removed = 播放列表封面已移除
+toast-track-moved = 已移动到 { $name }
+toast-playlist-imported = 已导入 { $name }
+toast-playlist-imported-partly = 已导入 { $name }，跳过 { $count ->
+        [one] 一首
+       *[other] { $count } 首
+    }不在你音乐库里的歌曲
+toast-playlist-import-empty = { $name } 里的歌曲都不在你的音乐库中
+toast-playlist-exported = 播放列表已导出
+toast-file-dialog-failed = 无法打开文件对话框
+
+# lyrics
+lyrics-instrumental-break = 间奏

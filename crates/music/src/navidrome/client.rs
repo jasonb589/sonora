@@ -564,6 +564,8 @@ impl MusicApi for NavidromeClient {
         Ok(Artist {
             name: detail.name,
             cover_large,
+            // The server keeps no separate banner, so the page washes the portrait instead.
+            banner: None,
             biography,
             monthly_listeners: None,
             top_tracks,
