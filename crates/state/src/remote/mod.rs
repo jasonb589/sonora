@@ -1,7 +1,7 @@
 use std::ffi::c_void;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::path::PathBuf;
-use std::time::{Duration, Instant};
+use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant, SystemTime};
 
 use anyhow::{Context as _, Result};
 use gpui::{App, AppContext as _, Context, Entity, Global, Task};
@@ -27,6 +27,9 @@ const DISPLAY_NAME: &str = "Sonora";
 /// widget is told the track was seeked.
 const SEEK_SLACK: Duration = Duration::from_secs(2);
 const ARTWORK: &str = "artwork";
+/// How many covers the artwork folder keeps. The widget shows only the current track's, so the
+/// rest just save a download when the listener goes back.
+const KEPT_COVERS: usize = 32;
 
 struct Attached {
     _remote: Entity<Remote>,
@@ -222,10 +225,15 @@ impl Remote {
             _ => self.at,
         };
         let jumped = !moved && at.abs_diff(expected) > SEEK_SLACK;
+        let steady = !moved && !jumped && self.reported.as_ref() == Some(&state);
         self.reported = Some(state.clone());
         self.at = at;
         self.stamp = Instant::now();
 
+        // macos runs the clock
+        if cfg!(target_os = "macos") && steady {
+            return;
+        }
         self.controls.set_playback(&state, at);
         if jumped {
             self.controls.seeked(at);
@@ -289,6 +297,11 @@ async fn artwork(url: &str) -> Result<PathBuf> {
     ] {
         let candidate = dir.join(&key).with_extension(extension(format));
         if candidate.is_file() {
+            std::fs::File::options()
+                .write(true)
+                .open(&candidate)
+                .and_then(|file| file.set_modified(SystemTime::now()))
+                .ok();
             return Ok(candidate);
         }
     }
@@ -313,6 +326,7 @@ async fn artwork(url: &str) -> Result<PathBuf> {
     std::fs::create_dir_all(&dir).context("cannot create the artwork cache")?;
     let path = dir.join(&key).with_extension(extension(format));
     std::fs::write(&path, &bytes).context("cannot store the cover")?;
+    trim(&dir);
     Ok(path)
 }
 
@@ -335,6 +349,31 @@ fn is_stand_in(headers: &reqwest::header::HeaderMap) -> bool {
         .split(',')
         .map(str::trim)
         .any(|value| value.eq_ignore_ascii_case("no-store"))
+}
+
+/// Deletes all but the [`KEPT_COVERS`] most recently used covers in `dir`. A cover the widget
+/// still holds open on Windows fails to delete and goes on a later pass.
+fn trim(dir: &Path) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let mut covers: Vec<_> = entries
+        .flatten()
+        .filter_map(|entry| {
+            let metadata = entry
+                .metadata()
+                .ok()
+                .filter(|metadata| metadata.is_file())?;
+            Some((metadata.modified().ok()?, entry.path()))
+        })
+        .collect();
+    if covers.len() <= KEPT_COVERS {
+        return;
+    }
+    covers.sort_unstable_by_key(|(used, _)| std::cmp::Reverse(*used));
+    for (_, path) in covers.into_iter().skip(KEPT_COVERS) {
+        std::fs::remove_file(path).ok();
+    }
 }
 
 fn extension(format: image::ImageFormat) -> &'static str {
