@@ -211,3 +211,10 @@ locally, and every check runs on GitHub Actions.
 - **A new `SessionEvent` variant lands in state's `match` arms,** one per owner; the fork's own
   arm in `crates/state/src/cover.rs` is the only one git cannot merge on its own, since it is the
   only arm the fork changed.
+- **The updater checks this fork's releases, not upstream's.** `crates/state/src/updates/mod.rs`
+  holds the repository its `/releases/latest` is read from, and this copy tags a release
+  `windows-x.y.z` where upstream tags `vx.y.z`, so `stable_version` strips either prefix and falls
+  back to the release title. An install is verified against the `SHA256SUMS` asset, which
+  `windows.yml` writes into `dist/` beside the installer, so a release without that file can only
+  be installed by hand. This copy publishes stable builds only, which is why `Channel::ALL` offers
+  one channel.
