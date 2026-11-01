@@ -12,7 +12,7 @@ use sha2::{Digest as _, Sha256};
 use crate::{AppSettings, Io, join};
 use install::Install;
 
-const RELEASES: &str = "https://api.github.com/repos/sonorahq/sonora/releases";
+const RELEASES: &str = "https://api.github.com/repos/jasonb589/sonora/releases";
 const SUMS: &str = "SHA256SUMS";
 /// What the nightly workflow puts before the version label in the nightly release's title.
 const NIGHTLY_TITLE: &str = "Nightly ";
@@ -26,7 +26,7 @@ pub const VERSION: &str = match option_env!("SONORA_VERSION") {
 const AGENT: &str = concat!(
     "sonora/",
     env!("CARGO_PKG_VERSION"),
-    " (https://github.com/sonorahq/sonora)"
+    " (https://github.com/jasonb589/sonora)"
 );
 
 /// The builds Sonora updates to. Stable follows tagged releases, and Nightly follows the build
@@ -38,7 +38,8 @@ pub enum Channel {
 }
 
 impl Channel {
-    pub const ALL: [Self; 2] = [Self::Stable, Self::Nightly];
+    /// This copy publishes stable Windows builds only, so that is the one channel it offers.
+    pub const ALL: [Self; 1] = [Self::Stable];
 
     /// The channel the running build came from.
     pub fn running() -> Self {
@@ -59,7 +60,6 @@ impl Channel {
     pub fn from_id(id: &str) -> Self {
         match id {
             "stable" => Self::Stable,
-            "nightly" => Self::Nightly,
             _ => Self::running(),
         }
     }
@@ -253,6 +253,20 @@ struct Asset {
     browser_download_url: String,
 }
 
+/// The version a stable release names: its tag without the prefix the publisher puts in front of
+/// it, or its title when the tag carries something else. This copy tags its Windows builds
+/// `windows-0.44.8` where upstream tags a release `v0.46.0`, and both read as versions here.
+fn stable_version(published: &Published) -> String {
+    let tag = published
+        .tag_name
+        .trim_start_matches("windows-")
+        .trim_start_matches('v');
+    if ordered(tag).is_some() {
+        return tag.to_owned();
+    }
+    published.name.clone().unwrap_or_else(|| tag.to_owned())
+}
+
 /// The newest build on `channel`, or `None` when the running build should stay.
 async fn latest(http: &reqwest::Client, channel: Channel) -> Result<Option<Release>> {
     let published: Published = http
@@ -269,7 +283,7 @@ async fn latest(http: &reqwest::Client, channel: Channel) -> Result<Option<Relea
         .context("cannot read the github release")?;
 
     let version = match channel {
-        Channel::Stable => published.tag_name.trim_start_matches('v').to_owned(),
+        Channel::Stable => stable_version(&published),
         Channel::Nightly => published
             .name
             .as_deref()

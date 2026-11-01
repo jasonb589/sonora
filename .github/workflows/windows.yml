@@ -87,6 +87,18 @@ jobs:
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "scripts/windows/sonora.iss"
 
 
+      # The updater reads the checksum from a file beside the installer, so a download that
+      # arrived damaged is thrown away rather than run.
+      - name: write the checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -File |
+            Where-Object { $_.Name -ne "SHA256SUMS" } |
+            ForEach-Object {
+              $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower()
+              "$hash  $($_.Name)"
+            } | Set-Content dist/SHA256SUMS -Encoding ascii
+
       # The release is the one place the installer is handed out from.
       - name: publish the release
         shell: pwsh
