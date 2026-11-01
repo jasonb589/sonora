@@ -50,8 +50,9 @@ const BANNER_RISE_LEAST: f32 = 0.35;
 const BANNER_RISE_MOST: f32 = 1.;
 const BANNER_BOX: f32 = 2.7;
 /// The room above the hero when only a blurred portrait stands in for the banner. The wash has
-/// no proportions to keep, so it stays this tall at any width.
-const BANNER_RISE_WASH: f32 = 0.6;
+/// no proportions to keep, so it stays this tall at any width. It is kept low: the wash is a
+/// hint of the art behind the hero, not a band of its own.
+const BANNER_RISE_WASH: f32 = 0.25;
 /// The aspect the banner picture is drawn at. Spotify's banners are this wide, and the box is
 /// a little wider still, so the picture loses a strip at its top and bottom but never its sides.
 const BANNER_ASPECT: f32 = 2.33;
@@ -1170,7 +1171,22 @@ impl Render for ArtistView {
         if self.mode == Mode::List {
             self.table.claim(cx);
             let mut viewport = page::viewport(&scroll, inset, window);
-            viewport.top = (viewport.top - TABLE_BORDER).max(Pixels::ZERO);
+            // `viewport` measures from the block under the hero. This page puts the biography,
+            // and the heading list mode adds, between that block and the table, so the head has
+            // to wait for them as well rather than pinning while they are still on screen.
+            let biography = self.detail.read(cx).artist().is_some_and(|artist| {
+                artist
+                    .biography
+                    .as_ref()
+                    .is_some_and(|text| !text.is_empty())
+            });
+            let mut extra = Pixels::ZERO;
+            for item in 1..2 + usize::from(biography) {
+                if let Some(bounds) = scroll.bounds_for_item(item) {
+                    extra += bounds.size.height;
+                }
+            }
+            viewport.top = (viewport.top - extra - TABLE_BORDER).max(Pixels::ZERO);
             self.table
                 .update(cx, |table, _| table.set_viewport(viewport));
         }
