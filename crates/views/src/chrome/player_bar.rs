@@ -18,7 +18,7 @@ use input::{ToggleFullscreen, ToggleLyrics, ToggleQueue};
 use state::{AppSettings, Playback, PlayerBarLayout, Queue, SideTab, Sonora};
 use ui::{
     Artwork, Button, ExplicitBadge, HoverFade, InlineLink, InlineLinks, Motion, Popup, Room,
-    Scrollbar, Scrubber, ScrubberState, Visualizer, clock, tabular,
+    Scrollbar, Scrubber, ScrubberState, clock, tabular,
 };
 
 use crate::chrome::devices::DevicePicker;
@@ -26,7 +26,6 @@ use crate::chrome::jam::{self, JamPeople};
 use crate::chrome::{Chrome, SidebarRight};
 use crate::shared::menus::ItemMenu;
 use crate::shared::transport::{NOTCH, fraction, like, moved, percent, transport, volume_icon};
-use crate::shared::visualizer::VisualizerDrive;
 
 const SEEK_MAX: f32 = 560.;
 const VOLUME_WIDTH: f32 = 110.;
@@ -37,8 +36,6 @@ const CLOCK_LONG: f32 = 5.4;
 /// device playback is on.
 const BANNER: f32 = 32.;
 const BANNER_ICON: f32 = 14.;
-/// The height of the spectrum strip along the bar's bottom edge.
-const SPECTRUM: f32 = 3.;
 /// The width of a member's picture on the strip, and how many of them it shows before it counts
 /// the rest.
 const BANNER_FACE: f32 = 24.;
@@ -63,8 +60,6 @@ pub(crate) struct PlayerBar {
     over_volume: Option<f32>,
     volume_held: bool,
     muted: Option<f32>,
-    /// The spectrum a strip along the bar's bottom edge draws while a track plays here.
-    visualizer: VisualizerDrive,
 }
 
 impl PlayerBar {
@@ -98,7 +93,6 @@ impl PlayerBar {
             over_volume: None,
             volume_held: false,
             muted: None,
-            visualizer: VisualizerDrive::default(),
         }
     }
 
@@ -891,30 +885,8 @@ impl Render for PlayerBar {
             })
         });
 
-        let style = self.settings.read(cx).visualizer_style();
-        let visualizer_on = style.shown() && self.playback.read(cx).steered(cx).is_none();
-        match visualizer_on
-            .then(|| self.playback.read(cx).spectrum(cx))
-            .flatten()
-        {
-            Some(spectrum) => self.visualizer.show(cx.entity_id(), spectrum, window),
-            None => self.visualizer.hide(),
-        }
-        let levels = self.visualizer.levels();
-
         content
             .relative()
-            .when(visualizer_on, |this| {
-                this.child(
-                    Visualizer::new(levels, px(SPECTRUM))
-                        .style_kind(style)
-                        .corner_radius(px(SPECTRUM))
-                        .absolute()
-                        .left_0()
-                        .right_0()
-                        .bottom_0(),
-                )
-            })
             .when_some(banner, |this, banner| this.child(banner))
             .when_some(context_menu, |this, menu| this.child(menu))
             .child(self.people.clone())
