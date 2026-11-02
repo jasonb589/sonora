@@ -7,19 +7,61 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- On Windows, playback no longer crackles while you open apps or browser tabs.
+
+## [0.47.0] - 2026-11-02
+
 ### Added
 
+- Listen together on any streaming service with Sonora Session: start one from the Sessions button in the player bar, share its six-digit code, and everyone who joins hears the same song in step.
+- `sonora session` starts, joins or leaves a Sonora Session from the command line.
+- A Members panel, opened from the Sessions menu, lists who is in your Sonora Session or Spotify Jam and lets the host remove someone. An accent dot on the Sessions button shows one is under way, and while another Spotify device plays the button wears that device's icon.
+- Hide the Sessions button, or run Sessions through a server of your own, from the Playback settings. Save keeps a server only once it answers, and a toast says how it went while the field turns red until a save goes through.
 - An artist page shows the artist's banner behind its header, sharp at the top and blurring into
   the page under the name. Artists without a banner get a soft wash of their photo's colours.
+- Local songs read word-by-word lyrics from a `.ttml` file beside them or from TTML in their
+  lyrics tag.
+- The Now playing preview in Appearance settings draws the visualizer style you pick.
+- While anything downloads, the title bar shows how many songs are left, with a cross that cancels
+  every download. Click it to see those songs under the album, playlist or pick that started
+  them, and cancel any one download on its own.
 
 ### Changed
 
+- The devices button in the player bar is now the Sessions button. It shows for every streaming service and sits evenly beside the lyrics and queue buttons.
+- Spotify Jam controls sit together under a Spotify Jams submenu of the Sessions button, and the strip above the player bar is gone.
+- A text field scrolls to keep the caret in sight, so long text is cut off on the side you are not typing.
+- The tray menu and taskbar buttons follow the song of the Jam or device you are listening to.
 - A song's right-click menu groups Artist, Album, Radio and Details under one Go to submenu.
+- Sorting by Date added puts the songs you added most recently first.
+- When a service signs you out, the toast says your session was invalidated and stays up with a Sign in button that opens the Providers settings.
+- Starting a download shows a short toast instead of one that follows its progress.
+- A long playlist starts downloading as soon as its first songs are listed.
+- After Spotify refuses a burst of downloads, Sonora checks back every fifteen seconds without
+  fetching a song first, and carries on as soon as Spotify allows it, so a big playlist finishes
+  sooner.
+- Shuffle mixes the songs you queued by hand in with the rest, so turning it off and on again
+  reshuffles the whole queue.
 
 ### Fixed
 
+- A song the service will not serve is skipped, so its album or playlist still finishes downloading
+  and can be removed.
+- The download mark on a song finishes filling and fades out smoothly again when the song lands.
 - The header of an album, playlist or artist page no longer jumps when it finishes loading.
 - The column header of an artist's popular songs no longer leaves a thin gap above it while scrolling.
+- Resuming after a pause no longer plays a blip of the old position first after a seek or a reload.
+- A `spotify://track/…` link opens that song, as `spotify:track:…` links already did.
+- The system media controls show the length of every song, not 0 for songs whose length only
+  arrives once they start playing.
+- Dragging the volume slider no longer stutters or spikes CPU and GPU use.
+- Leaving a Jam you joined works again.
+- Screen readers read the Discord status preview in settings: its text, buttons and service badge.
+- Songs you queue in a Jam show your name as the one who added them.
+- A Jam's queue is no longer cleared when a song starts playing.
+- Music no longer crackles when you open an app or a browser tab while it plays.
 
 ## [0.46.0] - 2026-10-31
 
@@ -2446,7 +2488,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Initial release: a native Spotify client with playback, an interactive queue, the saved library,
 search, album, playlist, artist and song pages, context menus and adaptive theming.
 
-[unreleased]: https://github.com/sonorahq/sonora/compare/v0.46.0...HEAD
+[unreleased]: https://github.com/sonorahq/sonora/compare/v0.47.0...HEAD
+[0.47.0]: https://github.com/sonorahq/sonora/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/sonorahq/sonora/compare/v0.45.0...v0.46.0
 [0.45.0]: https://github.com/sonorahq/sonora/compare/v0.44.2...v0.45.0
 [0.44.2]: https://github.com/sonorahq/sonora/compare/v0.44.1...v0.44.2
