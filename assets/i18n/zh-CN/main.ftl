@@ -891,10 +891,7 @@ menu-downloading = 正在下载，点击可停止
 queue-added-by = 由 { $name } 添加
 
 # player bar
-player-devices = 设备
 devices-this-computer = 这台电脑
-devices-pause = 暂停
-devices-resume = 继续播放
 devices-jam-join = 加入一起听…
 devices-jam-join-title = 加入一起听
 devices-jam-join-detail = 粘贴朋友分享给你的链接
@@ -902,15 +899,12 @@ devices-jam-paste = 粘贴
 devices-jam-link-hint = 一起听链接
 devices-jam-start = 发起一起听
 devices-jam-copy = 复制一起听链接
-devices-jam-code = 二维码
 devices-jam-code-menu = 显示二维码
 devices-jam-code-title = 扫码加入 { $host } 的一起听
 devices-jam-code-title-anonymous = 扫码加入一起听
 devices-jam-code-close = 关闭
 devices-jam-leave = 离开一起听
 devices-jam-end = 结束一起听
-devices-jam-banner = 正在 { $host } 的一起听中
-devices-jam-banner-anonymous = 正在一起听中
 devices-jam-more = +{ $count }
 devices-jam-host = 主持人
 devices-jam-you = 你
@@ -922,8 +916,6 @@ devices-jam-invite-detail = { $count ->
    *[other] 已有 { $count } 人在这个一起听中。
 }
 devices-jam-invite-join = 加入
-devices-elsewhere-banner = 正在 { $device } 上播放
-devices-elsewhere-here = 在此播放
 
 # filters
 filter-hide-explicit = 隐藏露骨内容
@@ -1280,19 +1272,8 @@ toast-offline-mode = 你处于离线状态，联网后才能播放这首歌曲�
 offline-title = 你现在处于离线状态。
 offline-go-online = 连接网络
 toast-download-failed = 无法列出要下载的歌曲。
-toast-downloading = 正在下载 { $name }
-toast-downloading-songs = { $count ->
-        [one] 正在下载 { $count } 首歌曲
-       *[other] 正在下载 { $count } 首歌曲
 }
-toast-downloaded = 已下载 { $name }
-toast-downloaded-songs = { $count ->
-        [one] 已下载 { $count } 首歌曲
-       *[other] 已下载 { $count } 首歌曲
 }
-toast-download-set-failed = { $name } 的部分歌曲无法下载
-toast-download-song-failed = { $name } 无法下载
-toast-download-songs-failed = 部分歌曲无法下载
 toast-percent = { $percent }%
 toast-download-cancelled = 已取消下载 { $name }
 toast-downloads-cancelled = { $count ->
@@ -1475,3 +1456,80 @@ toast-file-dialog-failed = 无法打开文件对话框
 
 # lyrics
 lyrics-instrumental-break = 间奏
+
+
+# app menu
+downloads-active = 正在下载
+downloads-left = { $count ->
+    [one] 还剩 { $count } 首
+   *[other] 还剩 { $count } 首
+    }
+downloads-eta = 约剩 { $minutes } 分钟
+downloads-songs = 歌曲
+downloads-cancel = 取消下载
+downloads-cancel-all = 取消全部下载
+
+# player bar
+player-sessions = 会话
+devices-spotify-jams = Spotify Jam
+members-title = 成员
+members-empty = 发起或加入一个会话后，就能看到谁和你一起在听
+devices-session-start = 发起会话
+devices-session-join = 加入会话…
+devices-session-join-title = 加入会话
+devices-session-join-detail = 输入朋友分享给你的代码
+devices-session-join-confirm = 加入
+devices-session-code = 会话代码
+devices-session-code-menu = 显示会话代码
+devices-session-code-title = 你的会话代码
+devices-session-code-detail = 任何已登录 { $provider } 的人都能用这个代码加入
+devices-session-code-close = 完成
+devices-session-copy = 复制代码
+devices-session-leave = 离开会话
+devices-session-end = 结束会话
+devices-session-reconnecting = 正在重新连接…
+devices-session-people = { $count ->
+    [one] 这个会话里有 { $count } 人
+   *[other] 这个会话里有 { $count } 人
+    }
+
+# what screen readers call the preview of the Discord status
+settings-discord-preview = Discord 状态预览
+
+# the Discord status when the track is left out of it
+settings-group-sessions = 会话
+settings-sessions-button = 显示「会话」按钮
+settings-sessions-official = 使用官方的 Sonora 会话服务器
+settings-sessions-server = 服务器地址
+settings-sessions-server-hint = wss://sessions.example.com
+settings-sessions-save = 保存
+
+# motion
+toast-session-invalidated = 你的 { $name } 登录已失效
+toast-sign-in = 登录
+
+# tags
+toast-session-needs-provider = 先登录一个流媒体服务，才能发起会话。
+toast-session-not-found = 没有使用这个代码的会话。
+toast-session-provider = 这个会话播放的是 { $name } 的音乐。登录 { $name } 后才能加入。
+toast-session-full = 这个会话已经满了。
+toast-session-rate-limited = 输错太多次，请过几分钟再试。
+toast-session-too-many = 你的网络已经开了允许的最大会话数。结束一个再开新的。
+toast-session-unreachable = 无法连接 Sonora 会话服务，请稍后再试。
+toast-session-failed = 会话无法发起或加入。
+toast-session-lost = 与会话的连接已断开
+toast-session-ended = 会话已结束
+toast-session-left = 你已离开会话
+toast-session-kicked = 主持人把你移出了会话
+toast-session-code-copied = 代码已复制
+toast-sessions-server-saved = 会话服务器已保存
+toast-sessions-server-empty = 请先输入服务器地址
+toast-sessions-server-malformed = 这不像是一个服务器地址
+toast-sessions-server-silent = 这个地址上没有 Sonora 会话服务器响应，所以没有保存
+
+# trouble
+toast-download-started = 开始下载 { $name }
+toast-downloads-started = { $count ->
+    [one] 开始下载 { $count } 首歌曲
+   *[other] 开始下载 { $count } 首歌曲
+}
