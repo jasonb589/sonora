@@ -478,7 +478,6 @@ home-playlists = Playlists
 home-favorite-albums = Favorite albums
 home-artists = Artists
 home-collection-albums = Albums from your collection
-home-refresh = Refresh
 home-for-you = For you
 home-from-your-library = From your library
 home-most-played-albums = Most played albums
