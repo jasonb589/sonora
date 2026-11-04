@@ -612,6 +612,9 @@ impl Root {
         // otherwise answered from the copy the last lookup stored.
         let lyrics = Sonora::global(cx).lyrics.clone();
         lyrics.update(cx, |lyrics, cx| lyrics.reload(cx));
+        // Covers are asked for again beside the page: what a refresh is expected to fix is the
+        // art that failed to arrive as much as the art the server has replaced behind the cache.
+        ui::reload_artwork(cx);
         let destination = router::trail(cx).read(cx).current();
         let Some(busy) = self.loading(&destination, cx) else {
             return;
