@@ -1,14 +1,18 @@
 use gpui::accesskit::Role;
 use gpui::prelude::*;
 use gpui::{
-    AnyElement, App, Context, Div, ElementId, Entity, EntityId, Pixels, Point, ScrollHandle,
-    ScrollWheelEvent, SharedString, Stateful, WeakEntity, Window, div, point, px,
+    AnyElement, App, Context, Div, ElementId, Entity, EntityId, FontWeight, Hsla, Pixels, Point,
+    ScrollHandle, ScrollWheelEvent, SharedString, Stateful, WeakEntity, Window, div,
+    linear_color_stop, linear_gradient, point, px,
 };
 use std::rc::Rc;
 
 use music::{GenreItem, GenreSection};
+use router::{Destination, navigate};
 use state::Playback;
-use ui::{ActiveTheme as _, Button, Card, Deck, Glide, Mode, Skeleton, Text, heading, snapped};
+use ui::{
+    ActiveTheme as _, Artwork, Button, Card, Deck, Glide, Mode, Skeleton, Text, heading, snapped,
+};
 
 use crate::shared::album_grid::CardGrid;
 use crate::shared::cards;
@@ -24,6 +28,15 @@ const LANE_GAP: Pixels = px(8.);
 const HEADING_GAP: Pixels = px(12.);
 const LEADING: f32 = 1.4;
 const HEADING: Pixels = px(140.);
+/// How tall a genre plate stands, as a share of the row the theme gives a listed card: a wide
+/// rectangle, so the picture a genre wears reads as a picture rather than a thumbnail.
+const PLATE_RISE: f32 = 1.75;
+/// The room between two genre plates, and between two rows of them.
+const PLATE_GAP: Pixels = px(12.);
+/// Where the shade under a plate's name starts, and how much of the theme's background it reaches
+/// by its foot: the name reads over any picture while the picture still shows through.
+const PLATE_SHADE_FROM: f32 = 0.45;
+const PLATE_SHADE: f32 = 0.92;
 
 pub(crate) struct Shelves {
     id: &'static str,
@@ -343,13 +356,59 @@ impl Shelves {
     }
 }
 
-pub(crate) fn plate(
+/// One genre of the wall: its picture filling the plate and its name over the foot of it. A
+/// genre the server keeps no picture for wears the colour its own name names, so the wall never
+/// shows a hole where art is missing.
+fn plate(
     id: impl Into<ElementId>,
     genre: &music::Genre,
-    tile: Option<Pixels>,
+    width: Pixels,
+    height: Pixels,
+    place: (usize, usize),
     cx: &App,
-) -> Card {
-    cards::genre_card(id, genre).map(|card| dressed(card, tile, cx))
+) -> AnyElement {
+    let (index, total) = place;
+    let theme = *cx.theme();
+    let opened = SharedString::from(genre.id.clone());
+
+    div()
+        .id(id)
+        .role(Role::Button)
+        .aria_label(SharedString::from(genre.name.clone()))
+        .aria_position_in_set(index + 1)
+        .aria_size_of_set(total)
+        .relative()
+        .flex_none()
+        .w_full()
+        .h(height)
+        .rounded(theme.radius)
+        .overflow_hidden()
+        .cursor_pointer()
+        // The colour stands under the picture, so a plate whose art is still on its way is never
+        // a white hole in the wall.
+        .bg(theme.primary_of(named_hue(&genre.name)))
+        .when_some(genre.cover.clone(), |this, cover| {
+            this.child(Artwork::new(Some(cover)).size(width).wide(height))
+        })
+        .child(div().absolute().inset_0().bg(linear_gradient(
+            180.,
+            linear_color_stop(theme.background.opacity(0.), PLATE_SHADE_FROM),
+            linear_color_stop(theme.background.opacity(PLATE_SHADE), 1.),
+        )))
+        .child(
+            div()
+                .absolute()
+                .left(px(14.))
+                .right(px(14.))
+                .bottom(px(10.))
+                .truncate()
+                .text_size(theme.text(Text::Body))
+                .font_weight(FontWeight::SEMIBOLD)
+                .text_color(theme.foreground)
+                .child(SharedString::from(genre.name.clone())),
+        )
+        .on_click(move |_, _, cx| navigate(Destination::Genre(opened.clone()), cx))
+        .into_any_element()
 }
 
 pub(crate) fn grid(
@@ -360,28 +419,54 @@ pub(crate) fn grid(
     cx: &App,
 ) -> AnyElement {
     let lanes = lanes(width);
-    let row = snapped(cx.theme().metrics.list_row, window);
+    let gap = PLATE_GAP;
+    let kept = width - gap * (lanes as f32 - 1.);
+    let cell = kept / lanes as f32;
+    let height = snapped(cx.theme().metrics.list_row * PLATE_RISE, window);
     let rows = genres.len().div_ceil(lanes);
 
     Deck::new(id)
-        .rows((0..rows).map(|_| row))
-        .gap(LANE_GAP)
-        .draw(move |place, _, cx| {
-            let first = place * lanes;
-            let cells = (first..(first + lanes).min(genres.len())).map(|index| {
-                plate((id, index), &genres[index], None, cx)
-                    .aria_position_in_set(index + 1)
-                    .aria_size_of_set(genres.len())
+        .rows((0..rows).map(|_| height))
+        .gap(gap)
+        .draw(move |row, _, cx| {
+            let first = row * lanes;
+            let drawn = (first..(first + lanes).min(genres.len())).map(|index| {
+                plate(
+                    (id, index),
+                    &genres[index],
+                    cell,
+                    height,
+                    (index, genres.len()),
+                    cx,
+                )
             });
 
             div()
                 .flex()
                 .w_full()
-                .gap_2()
-                .children(cells.map(|cell| div().flex().flex_col().flex_1().min_w_0().child(cell)))
+                .gap(gap)
+                .children(drawn.map(|tile| div().flex().flex_col().flex_1().min_w_0().child(tile)))
                 .into_any_element()
         })
         .into_any_element()
+}
+
+/// The hue a genre with no picture wears: its own name picks it, so a genre keeps its colour from
+/// one launch to the next and neighbours rarely match. Only the hue is used, since the theme pins
+/// the weight every plate reads at.
+fn named_hue(name: &str) -> Hsla {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in name.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+
+    Hsla {
+        h: (hash % 360) as f32 / 360.,
+        s: 0.5,
+        l: 0.5,
+        a: 1.,
+    }
 }
 
 /// How many columns a grid of genre plates `width` wide lays out.

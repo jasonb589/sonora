@@ -1005,6 +1005,18 @@ impl MusicApi for NavidromeClient {
             },
         })
     }
+
+    /// A picture for a genre the server lists with none: the cover of the newest album the genre
+    /// holds, which is the first thing a page for it shows. One request, one row.
+    async fn genre_cover(&self, genre_id: &str) -> Result<Option<String>> {
+        let id = escape::component(genre_id);
+        let asked = format!("/api/album?genre_id={id}&_sort=maxYear&_order=DESC&_start=0&_end=1");
+        let rows: Vec<wire::Album> = self.item(&asked).await?;
+        Ok(rows
+            .into_iter()
+            .next()
+            .and_then(|row| self.album_cover(&row)))
+    }
 }
 
 /// Every row of a listing that arrives a page at a time, for the callers that want it in one
