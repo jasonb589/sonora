@@ -20,6 +20,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Genre covers stay aligned in incomplete rows and wide search windows.
 - Repeated refreshes while a page loads no longer restart its lyrics and artwork requests.
 - Screen readers announce the Immersive look switch in Appearance settings.
+- Chinese account details and audio channel summaries show all their values.
 
 ## [0.48.0] - 2026-11-07
 

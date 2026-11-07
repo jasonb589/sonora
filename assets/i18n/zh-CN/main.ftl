@@ -662,7 +662,7 @@ settings-adaptive-menu-detail = 省略行中已显示的项，例如专辑或歌
 settings-accounts = 管理账户
 settings-accounts-detail = 此设备可以播放的服务
 settings-provider-current = 正在从此服务播放
-settings-profile-account = { $provider }
+settings-profile-account = { $provider } · { $account }
 settings-sign-out = 退出登录
 settings-lastfm = Last.fm
 settings-lastfm-detail = Sonora 通过你自己的 Last.fm API 账户记录播放。先创建一个 API 账户，再把 API Key 和 API Secret 粘贴到这里。
@@ -1148,10 +1148,14 @@ equalizer-status-rate = { $from } → { $to } kHz
 equalizer-status-bits = { $from } → { $to } 位
 equalizer-status-float = 浮点 → { $to } 位
 equalizer-status-channels = { $from ->
-        [1] 单声道
-        [2] 立体声
-       *[other] { $from } 声道
-    }
+    [1] 单声道
+    [2] 立体声
+   *[other] { $from } 声道
+} → { $to ->
+    [1] 单声道
+    [2] 立体声
+   *[other] { $to } 声道
+}
 settings-lyrics-sample-first = 任意数据
 settings-lyrics-sample-second = 在这里放入有趣的文字
 settings-lyrics-sample-japanese = ここに面白い文章を入れてください
