@@ -1120,7 +1120,7 @@ impl SearchView {
         let found = self.genres.read(cx).genres();
         let theme = *cx.theme();
         let pad = theme.metrics.inset;
-        let width = cells::content_width(window, pad * 2., cx);
+        let width = cells::content_width(window, gutter * 2., cx);
         let plates = shelves::grid("genre", found, width, window, cx);
 
         div()

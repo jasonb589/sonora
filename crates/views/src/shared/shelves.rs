@@ -450,22 +450,30 @@ pub(crate) fn grid(
         .gap(gap)
         .draw(move |row, _, cx| {
             let first = row * lanes;
-            let drawn = (first..(first + lanes).min(genres.len())).map(|index| {
-                plate(
-                    (id, index),
-                    &genres[index],
-                    cell,
-                    height,
-                    (index, genres.len()),
-                    cx,
-                )
-            });
 
             div()
                 .flex()
                 .w_full()
                 .gap(gap)
-                .children(drawn.map(|tile| div().flex().flex_col().flex_1().min_w_0().child(tile)))
+                // Empty columns keep the final row's plates and their artwork the same width.
+                .children((0..lanes).map(|column| {
+                    let index = first + column;
+                    div()
+                        .flex()
+                        .flex_col()
+                        .flex_1()
+                        .min_w_0()
+                        .when_some(genres.get(index), |this, genre| {
+                            this.child(plate(
+                                SharedString::from(format!("{id}-{}", genre.id)),
+                                genre,
+                                cell,
+                                height,
+                                (index, genres.len()),
+                                cx,
+                            ))
+                        })
+                }))
                 .into_any_element()
         })
         .into_any_element()
