@@ -194,7 +194,17 @@ impl HttpClient for Client {
                     return Ok::<_, anyhow::Error>((gone, empty.into()));
                 }
 
-                let bytes = incoming.bytes().await?;
+                let bytes = match incoming.bytes().await.map_err(reqwest::Error::without_url) {
+                    Ok(bytes) => bytes,
+                    Err(error) => {
+                        let Some(held) = held.take() else {
+                            return Err(error.into());
+                        };
+                        log::debug!("artwork: {uri} could not be read ({error}); keeping it");
+                        let bytes = held.bytes;
+                        return Ok::<_, anyhow::Error>((reqwest::StatusCode::OK, bytes.into()));
+                    }
+                };
 
                 if status == reqwest::StatusCode::NOT_MODIFIED
                     && let Some(held) = held.take()

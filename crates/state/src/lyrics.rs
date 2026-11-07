@@ -57,6 +57,8 @@ pub struct Lyrics {
     ahead: Option<Task<()>>,
     ahead_of: Option<String>,
     save: Option<Task<()>>,
+    /// Saves and refresh deletions run in order, so an older save cannot restore a dropped sheet.
+    writing: Option<Task<()>>,
     /// Moves the old lyrics.json into the cache database, once.
     _migration: Task<()>,
 }
@@ -128,6 +130,7 @@ impl Lyrics {
             ahead: None,
             ahead_of: None,
             save: None,
+            writing: None,
             _migration: migration,
         }
     }
@@ -169,12 +172,14 @@ impl Lyrics {
         self.task = None;
         self.ahead = None;
         self.ahead_of = None;
+        self.chosen = 0;
+        self.picked = false;
+        self.settled = false;
+        self.revision = self.revision.wrapping_add(1);
         self.dropped = Some(id.clone());
         let key = self.key(&id, cx);
-        let store = self.store.clone();
-        cx.background_executor()
-            .spawn(async move { store.forget(&key) })
-            .detach();
+        self.unsaved.retain(|entry| entry.key() != key);
+        self.write(move |store| store.forget(&key), cx);
         self.load(id, track, cx);
     }
 
@@ -663,14 +668,23 @@ impl Lyrics {
     fn schedule_save(&mut self, cx: &mut Context<Self>) {
         self.save = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SAVE_DELAY).await;
-            let Ok((store, unsaved)) = this.update(cx, |this, _| {
-                (this.store.clone(), std::mem::take(&mut this.unsaved))
-            }) else {
-                return;
-            };
-            cx.background_executor()
-                .spawn(async move { store.save(unsaved) })
-                .detach();
+            this.update(cx, |this, cx| {
+                let unsaved = std::mem::take(&mut this.unsaved);
+                this.write(move |store| store.save(unsaved), cx);
+            })
+            .ok();
+        }));
+    }
+
+    /// Queues a cache mutation after the previous one, independently of the debounce timer.
+    fn write(&mut self, operation: impl FnOnce(Sheets) + Send + 'static, cx: &Context<Self>) {
+        let previous = self.writing.take();
+        let store = self.store.clone();
+        self.writing = Some(cx.background_executor().spawn(async move {
+            if let Some(previous) = previous {
+                previous.await;
+            }
+            operation(store);
         }));
     }
 }

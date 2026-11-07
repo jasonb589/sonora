@@ -63,6 +63,12 @@ pub(crate) struct Sheets {
     cache: storage::Cache,
 }
 
+impl Unsaved {
+    pub(crate) fn key(&self) -> &str {
+        &self.key
+    }
+}
+
 impl Sheets {
     pub(crate) fn new(cache: storage::Cache) -> Self {
         Self { cache }
