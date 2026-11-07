@@ -151,7 +151,7 @@ impl HttpClient for Client {
                     outgoing = outgoing.body(body);
                 }
 
-                let incoming = match outgoing.send().await {
+                let incoming = match outgoing.send().await.map_err(reqwest::Error::without_url) {
                     Ok(incoming) => incoming,
                     Err(error) => {
                         let Some(held) = held.take() else {
