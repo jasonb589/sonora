@@ -458,12 +458,9 @@ pub(crate) fn grid(
                 // Empty columns keep the final row's plates and their artwork the same width.
                 .children((0..lanes).map(|column| {
                     let index = first + column;
-                    div()
-                        .flex()
-                        .flex_col()
-                        .flex_1()
-                        .min_w_0()
-                        .when_some(genres.get(index), |this, genre| {
+                    div().flex().flex_col().flex_1().min_w_0().when_some(
+                        genres.get(index),
+                        |this, genre| {
                             this.child(plate(
                                 SharedString::from(format!("{id}-{}", genre.id)),
                                 genre,
@@ -472,7 +469,8 @@ pub(crate) fn grid(
                                 (index, genres.len()),
                                 cx,
                             ))
-                        })
+                        },
+                    )
                 }))
                 .into_any_element()
         })

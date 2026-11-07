@@ -602,17 +602,15 @@ impl Root {
         router::open_settings(cx);
     }
 
-    /// Drops what the current page shows and fetches it again from its provider, so the page
-    /// sits in its loading state until the new data lands. Ctrl/Cmd+R, the menu and the
-    /// title-bar button all land here while a window is open, and pages with nothing to reload
-    /// ignore it. A page still loading ignores it too, so a held key or repeated presses cannot
-    /// keep restarting the load. The title-bar button turns until the page has its data.
+    /// Refreshes lyrics and artwork, and reloads the current page when it has provider data.
+    /// Ctrl/Cmd+R, the menu and the title-bar button all land here while a window is open.
+    /// A page still loading ignores another refresh, while fullscreen and pages without a
+    /// provider load still refresh the playing song's lyrics and covers. The title-bar button
+    /// turns until a page reload has its data.
     fn refresh(&mut self, cx: &mut Context<Self>) {
         let destination = router::trail(cx).read(cx).current();
-        let Some(busy) = self.loading(&destination, cx) else {
-            return;
-        };
-        if busy(cx) {
+        let busy = self.loading(&destination, cx);
+        if busy.as_ref().is_some_and(|busy| busy(cx)) {
             return;
         }
         // The song on screen is asked again as well: a lyric rewritten on the server is
@@ -622,9 +620,11 @@ impl Root {
         // Covers are asked for again beside the page: what a refresh is expected to fix is the
         // art that failed to arrive as much as the art the server has replaced behind the cache.
         ui::reload_artwork(cx);
-        self.reload_page(destination, cx);
-        self.title_bar
-            .update(cx, |bar, cx| bar.refreshing(busy, cx));
+        if let Some(busy) = busy {
+            self.reload_page(destination, cx);
+            self.title_bar
+                .update(cx, |bar, cx| bar.refreshing(busy, cx));
+        }
     }
 
     /// How to tell whether `destination` is still loading, or `None` for a page with nothing
