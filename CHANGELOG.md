@@ -7,9 +7,19 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Search Navidrome artists and play their complete catalogue from an artist page.
+
 ### Fixed
 
 - On macOS, Widevine is also found in registered browsers that have been renamed or moved.
+- Navidrome favorites, playback reporting and playlist loading and removal work correctly.
+- Refreshing lyrics finishes loading and keeps an older cached sheet from returning.
+- Cached artwork stays visible when its refresh is interrupted, and refreshed covers update their colors.
+- Genre covers stay aligned in incomplete rows and wide search windows.
+- Repeated refreshes while a page loads no longer restart its lyrics and artwork requests.
+- Screen readers announce the Immersive look switch in Appearance settings.
 
 ## [0.48.0] - 2026-11-07
 
