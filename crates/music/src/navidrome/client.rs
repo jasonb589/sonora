@@ -32,6 +32,7 @@ const HOME_ALBUMS: usize = 12;
 const TOP_TRACKS: usize = 20;
 const SEARCH_SONGS: usize = 50;
 const SEARCH_ALBUMS: usize = 30;
+const SEARCH_ARTISTS: usize = 30;
 const RECENT_COUNT: usize = 50;
 const API_VERSION: &str = "1.16.1";
 const CLIENT_NAME: &str = "sonora";
@@ -140,8 +141,12 @@ impl NavidromeClient {
         let token = escape::component(&session.subsonic_token);
         let salt = escape::component(&session.subsonic_salt);
         let query = format!("u={user}&t={token}&s={salt}&v={API_VERSION}");
+        let separator = match route.contains('?') {
+            true => '&',
+            false => '?',
+        };
         Some(format!(
-            "{server}/rest/{route}?{query}&c={CLIENT_NAME}&f=json"
+            "{server}/rest/{route}{separator}{query}&c={CLIENT_NAME}&f=json"
         ))
     }
 
@@ -341,6 +346,7 @@ impl NavidromeClient {
         let body = answer
             .text()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("cannot read the navidrome answer")?;
         serde_json::from_str(&body).context("cannot read the navidrome answer")
     }
@@ -376,10 +382,14 @@ impl NavidromeClient {
         let (sink, pages) = tokio::sync::mpsc::channel(PAGE_DEPTH);
         let client = self.clone();
         let query = query.to_owned();
+        let separator = match query.contains('?') {
+            true => '&',
+            false => '?',
+        };
         tokio::spawn(async move {
             let mut start = 0;
             loop {
-                let asked = format!("{query}&_start={start}&_end={}", start + size);
+                let asked = format!("{query}{separator}_start={start}&_end={}", start + size);
                 let (rows, total) = match client.listing::<W>(&asked).await {
                     Ok(page) => page,
                     Err(error) => {
@@ -430,9 +440,9 @@ impl NavidromeClient {
     async fn top_tracks(&self, artist_id: &str) -> Vec<Track> {
         let artist = escape::component(artist_id);
         let query = format!("/api/song?artist_id={artist}&_sort=playCount&_order=DESC");
-        let pages = self.paged(LIBRARY_PAGE, &query, Self::song);
-        let rows = every(pages).await.unwrap_or_default();
-        rows.into_iter().take(TOP_TRACKS).collect()
+        let query = format!("{query}&_start=0&_end={TOP_TRACKS}");
+        let rows: Vec<wire::Song> = self.item(&query).await.unwrap_or_default();
+        rows.into_iter().map(|row| self.song(row)).collect()
     }
 
     /// Up to `size` songs the server shuffles out of the whole library, for a shelf that wants
@@ -476,18 +486,42 @@ impl NavidromeClient {
         self.ask(&url).await
     }
 
-    /// A `rest` call that changes something, which the server answers with a status rather than
-    /// with anything the app reads.
+    /// A `rest` call that changes something. Subsonic reports failures inside HTTP 200 replies,
+    /// so only an explicit `ok` in the response body counts as success.
     async fn ask(&self, url: &str) -> Result<()> {
-        self.inner
+        let answer = self
+            .inner
             .http
             .get(url)
             .send()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("cannot reach the navidrome server")?
             .error_for_status()
+            .map_err(reqwest::Error::without_url)
             .context("the navidrome server refused the request")?;
-        Ok(())
+        let answer: Value = self.read(answer).await?;
+        let response = &answer["subsonic-response"];
+        match response["status"].as_str() {
+            Some("ok") => Ok(()),
+            Some("failed") => {
+                let error = &response["error"];
+                let code = error["code"]
+                    .as_i64()
+                    .and_then(|code| i32::try_from(code).ok())
+                    .unwrap_or_default();
+                let message = error["message"]
+                    .as_str()
+                    .unwrap_or("the navidrome server refused the request");
+                Err(opensubsonic::SubsonicApiError {
+                    code,
+                    message: crate::redact(message).into_owned(),
+                    help_url: None,
+                }
+                .into())
+            }
+            _ => anyhow::bail!("the navidrome response carries no valid status"),
+        }
     }
 
     /// Opens the audio of a track and answers once the response headers are in; the body is
@@ -501,8 +535,10 @@ impl NavidromeClient {
             .get(url)
             .send()
             .await
+            .map_err(reqwest::Error::without_url)
             .context("cannot stream the track")?
             .error_for_status()
+            .map_err(reqwest::Error::without_url)
             .context("the server refused the stream")
     }
 
@@ -571,6 +607,16 @@ impl MusicApi for NavidromeClient {
             top_tracks,
             albums,
         })
+    }
+
+    /// Plays the artist's whole catalogue in play-count order, without the overview's limit.
+    /// The shared filter keeps playable songs and collapses repeat releases.
+    async fn artist_tracks(&self, artist_id: &str) -> Result<Vec<Track>> {
+        let artist = escape::component(artist_id);
+        let query = format!("/api/song?artist_id={artist}&_sort=playCount&_order=DESC");
+        let pages = self.paged(LIBRARY_PAGE, &query, Self::song);
+        let tracks = every(pages).await?;
+        Ok(crate::artist_songs(tracks, artist_id))
     }
 
     async fn artist_profile(&self, artist_id: &str) -> Result<ArtistProfile> {
@@ -744,18 +790,27 @@ impl MusicApi for NavidromeClient {
             .context("cannot add the track to the playlist")
     }
 
-    /// The tracks route takes the ids to drop as query parameters, which is how the server's
-    /// own ui removes a row.
+    /// Removes the first matching row by its playlist entry id, which differs from the song id.
+    /// Stops reading once the entry is found, as only its position is needed for the deletion.
     async fn remove_track_from_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()> {
-        let id = escape::component(track_id);
         let list = escape::component(playlist_id);
-        let path = format!("/api/playlist/{list}/tracks?id={id}");
-        let answer = self
-            .request(reqwest::Method::DELETE, &path, None)
-            .await
-            .context("cannot remove the track from the playlist")?;
-        drop(answer);
-        Ok(())
+        let path = format!("/api/playlist/{list}/tracks");
+        let mut pages = self.paged(LIBRARY_PAGE, &path, |_, row: wire::PlaylistEntry| row);
+        while let Some(page) = pages.recv().await {
+            let entry = page?
+                .items
+                .into_iter()
+                .find(|entry| entry.media_file_id == track_id);
+            let Some(entry) = entry else { continue };
+            drop(pages);
+            let id = escape::component(&entry.song.id);
+            let path = format!("{path}?id={id}");
+            return self
+                .change(reqwest::Method::DELETE, &path, None)
+                .await
+                .context("cannot remove the track from the playlist");
+        }
+        anyhow::bail!("track is not in the playlist")
     }
 
     async fn saved_albums(&self) -> Result<Vec<Album>> {
@@ -929,6 +984,15 @@ impl MusicApi for NavidromeClient {
         );
         let rows: Vec<wire::Album> = self.item(&path).await.context("cannot search albums")?;
         Ok(rows.into_iter().map(|row| self.album_of(row)).collect())
+    }
+
+    async fn search_artists(&self, query: &str) -> Result<Vec<SavedArtist>> {
+        let path = format!(
+            "/api/artist?name={}&_sort=name&_order=ASC&_start=0&_end={SEARCH_ARTISTS}",
+            escape::component(query),
+        );
+        let rows: Vec<wire::Artist> = self.item(&path).await.context("cannot search artists")?;
+        Ok(rows.into_iter().map(|row| self.artist_of(row)).collect())
     }
 
     /// Playlists are few enough to filter here: the server's own listing takes no search.
