@@ -878,6 +878,7 @@ fn ask_again(cx: &mut App, everything: bool) {
         if everything {
             asked.extend(cache.items.keys().cloned());
             asked.extend(cache.condemned.keys().cloned());
+            cache.tints.clear();
             for image in std::mem::take(&mut cache.soft).into_values() {
                 cx.drop_image(image, None);
             }

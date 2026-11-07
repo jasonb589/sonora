@@ -43,6 +43,8 @@ pub struct Lyrics {
     /// Answers found since the last save, written together once lookups go quiet.
     unsaved: Vec<Unsaved>,
     providers: Vec<Arc<dyn LyricsProvider>>,
+    /// Whether lyrics are on at all. While off, nothing is looked up and the sheet stays empty.
+    enabled: bool,
     enabled_providers: Vec<String>,
     /// The order of the sources the answer on show was ranked by. A new order looks the track
     /// up again, from what is held, so the source now ranked first is the one shown.
@@ -55,6 +57,8 @@ pub struct Lyrics {
     ahead: Option<Task<()>>,
     ahead_of: Option<String>,
     save: Option<Task<()>>,
+    /// Saves and refresh deletions run in order, so an older save cannot restore a dropped sheet.
+    writing: Option<Task<()>>,
     /// Moves the old lyrics.json into the cache database, once.
     _migration: Task<()>,
 }
@@ -77,11 +81,14 @@ impl Lyrics {
         cx.observe(&queue, |this, _, cx| this.prefetch(cx)).detach();
         cx.observe(&settings, |this, settings, cx| {
             let settings = settings.read(cx);
+            let on = settings.lyrics_enabled();
             let enabled = settings.lyrics_providers();
             let priority = settings.lyrics_provider_priority();
-            if enabled == this.enabled_providers && priority == this.priority {
+            if on == this.enabled && enabled == this.enabled_providers && priority == this.priority
+            {
                 return;
             }
+            this.enabled = on;
             this.enabled_providers = enabled.to_vec();
             this.priority = priority;
             this.task = None;
@@ -91,6 +98,7 @@ impl Lyrics {
             this.follow(cx);
         })
         .detach();
+        let enabled = settings.read(cx).lyrics_enabled();
         let enabled_providers = settings.read(cx).lyrics_providers().to_vec();
         let priority = settings.read(cx).lyrics_provider_priority();
         let store = Sheets::new(storage::Cache::standard());
@@ -111,6 +119,7 @@ impl Lyrics {
             store,
             unsaved: Vec::new(),
             providers,
+            enabled,
             enabled_providers,
             priority,
             playback,
@@ -121,6 +130,7 @@ impl Lyrics {
             ahead: None,
             ahead_of: None,
             save: None,
+            writing: None,
             _migration: migration,
         }
     }
@@ -162,12 +172,14 @@ impl Lyrics {
         self.task = None;
         self.ahead = None;
         self.ahead_of = None;
+        self.chosen = 0;
+        self.picked = false;
+        self.settled = false;
+        self.revision = self.revision.wrapping_add(1);
         self.dropped = Some(id.clone());
         let key = self.key(&id, cx);
-        let store = self.store.clone();
-        cx.background_executor()
-            .spawn(async move { store.forget(&key) })
-            .detach();
+        self.unsaved.retain(|entry| entry.key() != key);
+        self.write(move |store| store.forget(&key), cx);
         self.load(id, track, cx);
     }
 
@@ -191,6 +203,9 @@ impl Lyrics {
     }
 
     fn follow(&mut self, cx: &mut Context<Self>) {
+        if !self.enabled {
+            return self.forget(cx);
+        }
         let shown = self.playback.read(cx).shown_track(cx);
         let Some(track) = shown.as_ref() else {
             return self.forget(cx);
@@ -364,7 +379,7 @@ impl Lyrics {
     }
 
     fn prefetch(&mut self, cx: &mut Context<Self>) {
-        if self.task.is_some() {
+        if !self.enabled || self.task.is_some() {
             return;
         }
         let queue = self.playback.read(cx).shown_queue(cx);
@@ -653,14 +668,23 @@ impl Lyrics {
     fn schedule_save(&mut self, cx: &mut Context<Self>) {
         self.save = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SAVE_DELAY).await;
-            let Ok((store, unsaved)) = this.update(cx, |this, _| {
-                (this.store.clone(), std::mem::take(&mut this.unsaved))
-            }) else {
-                return;
-            };
-            cx.background_executor()
-                .spawn(async move { store.save(unsaved) })
-                .detach();
+            this.update(cx, |this, cx| {
+                let unsaved = std::mem::take(&mut this.unsaved);
+                this.write(move |store| store.save(unsaved), cx);
+            })
+            .ok();
+        }));
+    }
+
+    /// Queues a cache mutation after the previous one, independently of the debounce timer.
+    fn write(&mut self, operation: impl FnOnce(Sheets) + Send + 'static, cx: &Context<Self>) {
+        let previous = self.writing.take();
+        let store = self.store.clone();
+        self.writing = Some(cx.background_executor().spawn(async move {
+            if let Some(previous) = previous {
+                previous.await;
+            }
+            operation(store);
         }));
     }
 }
@@ -789,21 +813,17 @@ async fn gather(
 mod tests {
     use std::time::Duration;
 
-    use music::{Lyrics as Sheet, LyricsHit, LyricsLine, LyricsWord, Voice};
+    use music::{Lyrics as Sheet, LyricsHit, LyricsLine, LyricsWord};
 
     use super::keep_displayed_first;
 
     fn hit(source: &'static str, lyrics: Sheet) -> LyricsHit {
         LyricsHit {
             source,
-            trust: 0,
             lyrics,
-            instrumental: false,
             title: "title".to_owned(),
             artist: "artist".to_owned(),
-            album: None,
-            duration: None,
-            writers: Vec::new(),
+            ..Default::default()
         }
     }
 
@@ -814,17 +834,14 @@ mod tests {
             "karaoke",
             Sheet::Synced {
                 lines: vec![LyricsLine {
-                    start: Duration::ZERO,
                     end: Some(Duration::from_secs(1)),
                     text: "line".to_owned(),
-                    romanized: None,
                     words: Some(vec![LyricsWord {
                         start: Duration::ZERO,
                         end: Duration::from_secs(1),
                         text: "line".to_owned(),
                     }]),
-                    secondary: Vec::new(),
-                    voice: Voice::Lead,
+                    ..Default::default()
                 }]
                 .into(),
             },

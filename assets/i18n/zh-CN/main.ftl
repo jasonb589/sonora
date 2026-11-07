@@ -37,7 +37,6 @@ nav-pinned = 已固定
 nav-unpin = 取消固定
 nav-pin-hint = 拖放到此处以固定
 library-liked-songs = 收藏
-library-play-liked-songs = 播放
 library-no-songs = 还没有收藏的歌曲
 library-no-albums = 还没有保存的专辑
 library-no-playlists = 还没有播放列表
@@ -96,25 +95,12 @@ column-year = 年份
 column-tracks = 歌曲总数
 
 # track menu
-menu-add-to-playlist = 添加到播放列表
-menu-add-tracks-to-playlist = { $count ->
-    [one] 将 { $count } 首歌曲添加到播放列表
-   *[other] 将 { $count } 首歌曲添加到播放列表
-}
 menu-new-playlist = 新建播放列表
 menu-edit-tags = 编辑标签
 menu-no-playlists = 没有播放列表
 menu-search-playlists = 搜索播放列表
 menu-add-to-library = 添加到收藏
-menu-add-tracks-to-library = { $count ->
-    [one] 将 { $count } 首歌曲添加到收藏
-   *[other] 将 { $count } 首歌曲添加到收藏
-}
 menu-remove-from-library = 从收藏中移除
-menu-remove-tracks-from-library = { $count ->
-    [one] 从收藏中移除 { $count } 首歌曲
-   *[other] 从收藏中移除 { $count } 首歌曲
-}
 menu-remove-from-playlist = 从播放列表中移除
 menu-remove-tracks-from-playlist = { $count ->
     [one] 从播放列表中移除 { $count } 首歌曲
@@ -157,16 +143,6 @@ menu-remove-from-queue = 从播放队列中移除
 menu-delete-playlist = 删除播放列表
 menu-add-playlist-to-library = 添加到音乐库
 menu-remove-playlist-from-library = 从音乐库中移除
-menu-library-add = 添加到音乐库
-menu-library-add-tracks = { $count ->
-    [one] 将 { $count } 首歌曲添加到音乐库
-   *[other] 将 { $count } 首歌曲添加到音乐库
-}
-menu-library-remove = 从音乐库中移除
-menu-library-remove-tracks = { $count ->
-    [one] 从音乐库中移除 { $count } 首歌曲
-   *[other] 从音乐库中移除 { $count } 首歌曲
-}
 menu-make-playlist-public = 设为公开
 menu-make-playlist-private = 设为私密
 menu-play-artist = 播放歌手
@@ -317,8 +293,6 @@ login-choose-detail = 选择登录 { $provider } 的方式。
 
 # album and playlist pages
 detail-playlist = 播放列表
-detail-play-album = 播放专辑
-detail-play-playlist = 播放该列表
 
 # play button
 play-pause = 暂停
@@ -331,7 +305,6 @@ artist-monthly-listeners = { $count ->
     [one] { $value } 位每月听众
    *[other] { $value } 位每月听众
 }
-artist-play = 立即播放
 artist-popular = 热门
 artist-popular-eyebrow = 探索这位歌手
 artist-popular-empty = 这位歌手暂无可播放内容
@@ -410,7 +383,6 @@ kind-playlist = 播放列表
 
 # song page
 song-eyebrow = 歌曲
-song-play = 播放歌曲
 song-view-album = 查看专辑
 song-loading = 正在加载歌曲信息…
 song-about = 关于这首歌
@@ -690,7 +662,7 @@ settings-adaptive-menu-detail = 省略行中已显示的项，例如专辑或歌
 settings-accounts = 管理账户
 settings-accounts-detail = 此设备可以播放的服务
 settings-provider-current = 正在从此服务播放
-settings-profile-account = { $provider }
+settings-profile-account = { $provider } · { $account }
 settings-sign-out = 退出登录
 settings-lastfm = Last.fm
 settings-lastfm-detail = Sonora 通过你自己的 Last.fm API 账户记录播放。先创建一个 API 账户，再把 API Key 和 API Secret 粘贴到这里。
@@ -875,15 +847,9 @@ app-refresh = 刷新
 
 # track menu
 menu-download = 下载
-menu-download-tracks = { $count ->
-    [one] 下载 { $count } 首歌曲
-   *[other] 下载 { $count } 首歌曲
-}
+
 menu-remove-download = 移除下载
-menu-remove-downloads = { $count ->
-    [one] 移除 { $count } 个下载
-   *[other] 移除 { $count } 个下载
-}
+
 menu-downloading = 正在下载，点击可停止
 
 # queue panel
@@ -1182,10 +1148,14 @@ equalizer-status-rate = { $from } → { $to } kHz
 equalizer-status-bits = { $from } → { $to } 位
 equalizer-status-float = 浮点 → { $to } 位
 equalizer-status-channels = { $from ->
-        [1] 单声道
-        [2] 立体声
-       *[other] { $from } 声道
-    }
+    [1] 单声道
+    [2] 立体声
+   *[other] { $from } 声道
+} → { $to ->
+    [1] 单声道
+    [2] 立体声
+   *[other] { $to } 声道
+}
 settings-lyrics-sample-first = 任意数据
 settings-lyrics-sample-second = 在这里放入有趣的文字
 settings-lyrics-sample-japanese = ここに面白い文章を入れてください
@@ -1375,11 +1345,11 @@ window-restore = 还原
 
 # track menu
 menu-import-playlist = 导入播放列表…
-menu-go-to = 前往
-menu-artist = 歌手
-menu-album = 专辑
-menu-radio = 电台
-menu-details = 详情
+
+
+
+
+
 menu-edit-playlist = 编辑播放列表
 menu-export-playlist = 导出播放列表…
 
@@ -1532,3 +1502,24 @@ toast-downloads-started = { $count ->
     [one] 开始下载 { $count } 首歌曲
    *[other] 开始下载 { $count } 首歌曲
 }
+menu-go-to-album = 前往专辑
+settings-lyrics = 显示歌词
+settings-lyrics-detail = 关闭后将在所有位置隐藏歌词，并停止查找歌词
+menu-add-to-playlist = 添加到播放列表
+menu-add-tracks-to-playlist = { $count ->
+    [one] 将 { $count } 首歌曲添加到播放列表
+   *[other] 将 { $count } 首歌曲添加到播放列表
+}
+menu-save-library = 音乐库
+login-problem-subscription = 此 Apple ID 没有有效的订阅。
+login-subscription-check = 查看 Apple Music
+artist-favorite-songs = 你收藏的歌曲
+artist-favorite-songs-count = { $count ->
+    [one] 已收藏 { $count } 首歌曲
+   *[other] 已收藏 { $count } 首歌曲
+}
+settings-match-rate = 匹配采样率
+settings-match-rate-detail = 按每首歌曲原有的采样率播放
+settings-match-rate-direct-only = 需要选择「直连硬件」下的设备
+toast-output-direct-failed = 无法直接在设备上播放
+toast-output-rate-failed = 无法切换设备的采样率

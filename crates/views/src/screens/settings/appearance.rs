@@ -156,7 +156,7 @@ impl SettingsView {
                         },
                     };
                     MenuItem::new(id, label)
-                        .selected(place == cursor)
+                        .highlighted(place == cursor)
                         .checked(chosen == name.as_ref())
                         .when(shows, |item| item.face(preview))
                         .on_click(cx.listener(move |this, _, _, cx| {
@@ -244,6 +244,7 @@ impl SettingsView {
         self.row(
             t!("settings-immersive"),
             Switch::new("immersive", immersive)
+                .name(t!("settings-immersive"))
                 .on_click(cx.listener(move |this, _, _, cx| {
                     this.settings
                         .update(cx, |settings, cx| settings.set_immersive(next, cx));
