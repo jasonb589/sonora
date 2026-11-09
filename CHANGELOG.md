@@ -7,25 +7,28 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-### Added
+## [0.48.1] - 2026-11-08
 
-- Search Navidrome artists and play their complete catalogue from an artist page.
+### Changed
+
+- Lyrics line spacing scales with the text size for a more balanced layout.
+- Fullscreen controls start hiding after one second of inactivity, with the same smooth cover transition.
 
 ### Fixed
 
+- Opening an artist's favorite songs no longer crashes when a song appears under the pointer.
+- Back and forward buttons stay beside the sidebar toggle with enough space between them.
+- App and tray icons stay sharp at more display scales, and Linux windows show the Sonora icon without desktop integration.
+- Lyrics keep equal left and right insets at every window and text size.
+- Apple Music lyrics can be found when the album has a different edition name in the lyrics catalogue.
+- Lyrics sources retry when their cached answers cannot be shown, and newly found lyrics stay available after restarting.
 - On macOS, Widevine is also found in registered browsers that have been renamed or moved.
-- Navidrome favorites, playback reporting and playlist loading and removal work correctly.
-- Refreshing lyrics finishes loading and keeps an older cached sheet from returning.
-- Cached artwork stays visible when its refresh is interrupted, and refreshed covers update their colors.
-- Genre covers stay aligned in incomplete rows and wide search windows.
-- Repeated refreshes while a page loads no longer restart its lyrics and artwork requests.
-- Screen readers announce the Immersive look switch in Appearance settings.
-- Chinese account details and audio channel summaries show all their values.
 
 ## [0.48.0] - 2026-11-07
 
 ### Added
 
+- Search Navidrome artists and play their complete catalogue from an artist page.
 - Drag the playing song from the player bar onto a playlist, Pinned or the queue.
 - Play directly to hardware on macOS. Every output device is listed a second time under Direct
   to hardware, and picking one there keeps every other app off it.
@@ -60,6 +63,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- Navidrome favorites, playback reporting and playlist loading and removal work correctly.
+- Refreshing lyrics finishes loading and keeps an older cached sheet from returning.
+- Cached artwork stays visible when its refresh is interrupted, and refreshed covers update their colors.
+- Genre covers stay aligned in incomplete rows and wide search windows.
+- Repeated refreshes while a page loads no longer restart its lyrics and artwork requests.
+- Screen readers announce the Immersive look switch in Appearance settings.
+- Chinese account details and audio channel summaries show all their values.
 - On macOS, scrolling and clicks no longer lag behind in fullscreen and with lyrics open.
 - Horizontal card rows scroll all the way to the page edges, including album recommendations.
 - Removing an Apple Music song or album from the library takes its like off right away, the way Apple does.
@@ -2569,7 +2579,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Initial release: a native Spotify client with playback, an interactive queue, the saved library,
 search, album, playlist, artist and song pages, context menus and adaptive theming.
 
-[unreleased]: https://github.com/sonorahq/sonora/compare/v0.48.0...HEAD
+[unreleased]: https://github.com/sonorahq/sonora/compare/v0.48.1...HEAD
+[0.48.1]: https://github.com/sonorahq/sonora/compare/v0.48.0...v0.48.1
 [0.48.0]: https://github.com/sonorahq/sonora/compare/v0.47.0...v0.48.0
 [0.47.0]: https://github.com/sonorahq/sonora/compare/v0.46.0...v0.47.0
 [0.46.0]: https://github.com/sonorahq/sonora/compare/v0.45.0...v0.46.0
