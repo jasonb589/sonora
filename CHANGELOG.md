@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- Subsonic lyrics are looked up once per song instead of twice.
+
 ## [0.48.1] - 2026-11-08
 
 ### Changed

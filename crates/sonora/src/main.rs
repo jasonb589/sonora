@@ -148,7 +148,6 @@ fn main() -> ExitCode {
             Arc::new(music::kugou::Kugou::new()),
             Arc::new(music::netease::NetEase::new()),
             Arc::new(music::navidrome::NavidromeLyrics::new()),
-            Arc::new(music::subsonic::SubsonicLyrics::new()),
         ];
         state::init(cx, io, database, providers, local_provider, lyrics);
         #[cfg(target_os = "windows")]
