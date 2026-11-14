@@ -17,7 +17,7 @@ const MARK_TILE: f32 = 0.5;
 const APP_ICON: &str = "brand/sonora.svg";
 const LICENSE_URL: &str = "https://www.gnu.org/licenses/gpl-3.0.html";
 /// The source of the build this copy of Sonora is, which the GPL asks this page to offer.
-const SOURCE_URL: &str = "https://github.com/jasonb589/sonora";
+const SOURCE_URL: &str = "https://github.com/syntaxia93/sonora";
 
 #[derive(Clone, Copy)]
 struct Member {

@@ -13,14 +13,14 @@ use sha2::{Digest as _, Sha256};
 use crate::{AppSettings, Io, join};
 use install::Install;
 
-const RELEASES: &str = "https://api.github.com/repos/jasonb589/sonora/releases";
+const RELEASES: &str = "https://api.github.com/repos/syntaxia93/sonora/releases";
 const SUMS: &str = "SHA256SUMS";
 /// What the nightly workflow puts before the version label in the nightly release's title.
 const NIGHTLY_TITLE: &str = "Nightly ";
 const AGENT: &str = concat!(
     "sonora/",
     env!("CARGO_PKG_VERSION"),
-    " (https://github.com/jasonb589/sonora)"
+    " (https://github.com/syntaxia93/sonora)"
 );
 
 /// The builds Sonora updates to. Stable follows tagged releases, and Nightly follows the build
