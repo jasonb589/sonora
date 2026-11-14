@@ -538,7 +538,10 @@ impl DiskCache {
 }
 
 fn key(url: &str) -> String {
-    format!("{:x}", Sha256::digest(url.as_bytes()))
+    Sha256::digest(url.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 fn cache_entry(path: &Path) -> bool {

@@ -137,7 +137,17 @@ pub fn track(source: Song, cover: Option<String>) -> models::Track {
         (&source.artist, &source.artist_id),
     );
     let tags = genres(&source);
-    let languages = source.tags.language.clone();
+    // Album credits stay empty when the server supplies none, rather than using the song's.
+    let album_artist = match source.album_artist.trim().is_empty() {
+        true => source
+            .participants
+            .albumartist
+            .iter()
+            .map(|artist| artist.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
+        false => source.album_artist,
+    };
     models::Track {
         id: Some(source.id),
         name: source.title,
@@ -146,6 +156,7 @@ pub fn track(source: Song, cover: Option<String>) -> models::Track {
         artists,
         artist_refs,
         album: source.album,
+        album_artist,
         album_id: unless_empty(source.album_id),
         cover,
         duration: length(source.duration),
@@ -160,7 +171,7 @@ pub fn track(source: Song, cover: Option<String>) -> models::Track {
         track_number: source.track_number,
         disc_number: source.disc_number.max(1),
         tags,
-        languages,
+        languages: source.tags.language,
         credits: Vec::new(),
     }
 }
@@ -177,15 +188,15 @@ pub fn album(source: Album, cover: Option<String>, cover_large: Option<String>) 
         0 => source.max_year,
         original => original,
     };
+    let kind = release_type(&source);
+    let added_at = moment(Some(&source.created_at));
     let release_date = match source.date.is_empty() {
         true => match year {
             0 => String::new(),
             _ => year.to_string(),
         },
-        false => source.date.clone(),
+        false => source.date,
     };
-    let kind = release_type(&source);
-    let added_at = moment(Some(&source.created_at));
     models::Album {
         id: source.id,
         name: source.name,
@@ -377,6 +388,7 @@ fn artists_of(
             (false, id) => vec![models::ArtistRef {
                 name: name.to_owned(),
                 id,
+                channel: false,
             }],
         };
         return (name.to_owned(), refs);
@@ -391,6 +403,7 @@ fn artists_of(
         .map(|artist| models::ArtistRef {
             name: artist.name.clone(),
             id: unless_empty(artist.id.clone()),
+            channel: false,
         })
         .collect();
     (joined, refs)

@@ -84,6 +84,7 @@ column-index = #
 column-title = 标题
 column-artist = 歌手
 column-album = 专辑
+column-genre = 流派
 column-date-added = 添加日期
 column-added-by = 添加者
 column-modified = 修改时间
@@ -668,7 +669,7 @@ settings-lastfm = Last.fm
 settings-lastfm-detail = Sonora 通过你自己的 Last.fm API 账户记录播放。先创建一个 API 账户，再把 API Key 和 API Secret 粘贴到这里。
 settings-librefm = Libre.fm
 settings-listenbrainz = ListenBrainz
-settings-listenbrainz-detail = 从 ListenBrainz 设置页面粘贴用户令牌。
+settings-listenbrainz-detail = 从 ListenBrainz 设置页面粘贴用户令牌。服务器地址通常留空；如果你使用自建 ListenBrainz 或 multi-scrobbler 等工具，请填写其地址。
 settings-maloja = Maloja
 settings-maloja-detail = 填入你的 Maloja 服务器地址，并粘贴其中一个 API Key。
 settings-scrobble-off = 未连接
@@ -1523,3 +1524,122 @@ settings-match-rate-detail = 按每首歌曲原有的采样率播放
 settings-match-rate-direct-only = 需要选择「直连硬件」下的设备
 toast-output-direct-failed = 无法直接在设备上播放
 toast-output-rate-failed = 无法切换设备的采样率
+
+# quick search and navigation
+menu-go-to-playlist = 前往播放列表
+player-time-left = -{ $time }
+player-time-left-spoken = 剩余 { $time }
+login-server-label = 服务器地址
+powerbar-title = 快速搜索
+powerbar-placeholder = 想听点什么？
+powerbar-open = 打开
+powerbar-song = 前往歌曲
+search-open-link = 在 Sonora 中打开链接
+
+# player bar time
+settings-player-bar-time = 时间
+settings-player-bar-time-left = 显示剩余时间
+settings-player-bar-time-left-detail = 显示歌曲剩余时间的倒计时，代替歌曲总时长
+
+# keyboard shortcuts
+settings-page-keybinds = 快捷键
+keybinds-group-playback = 播放
+keybinds-group-navigation = 导航
+keybinds-group-view = 视图
+keybinds-change = 更改「{ $action }」的快捷键
+keybinds-recording = 请按下快捷键…
+keybinds-none = 未设置
+keybinds-reset = 恢复默认
+keybinds-reset-all = 重置所有快捷键
+keybinds-reset-all-button = 重置
+keybind-toggle-playback = 播放或暂停
+keybind-song-previous = 上一首
+keybind-song-next = 下一首
+keybind-toggle-shuffle = 随机播放
+keybind-toggle-repeat = 循环播放
+keybind-navigate-back = 返回
+keybind-navigate-forward = 前进
+keybind-open-search = 搜索
+keybind-toggle-powerbar = 快速搜索
+keybind-open-filter = 筛选当前页面
+keybind-open-settings = 打开设置
+keybind-refresh = 刷新
+keybind-toggle-fullscreen = 正在播放
+keybind-toggle-queue = 显示播放队列
+keybind-toggle-lyrics = 显示歌词
+keybind-toggle-window-fullscreen = 窗口全屏
+keybind-increase-font-size = 增大文字
+keybind-decrease-font-size = 缩小文字
+keybind-reset-font-size = 默认文字大小
+toast-keybind-taken = 「{ $name }」不再使用此快捷键
+
+# visualizer and downloads
+settings-visualizer-screens = 显示位置
+settings-visualizer-screens-detail = 在哪些「正在播放」视图中显示频谱
+settings-visualizer-screens-pick = 选择视图
+settings-downloads-open = 打开下载文件夹
+settings-downloads-open-detail = 查看下载歌曲所在的文件夹，歌曲以普通音频文件保存，可在其他播放器中打开
+
+# Spotify Soloist player
+settings-group-soloist = Spotify 播放器
+settings-signal-soloist = Soloist
+settings-soloist = 使用 Soloist
+settings-soloist-detail = Soloist 是 Spotify 官方发布的播放器。当内置播放器无法播放时，它仍可播放，并支持无损音质。需要 Spotify Premium 订阅和你自己的 API 密钥。
+settings-soloist-on-detail = Spotify 通过 Soloist 播放，音频直接发送到系统输出。均衡器、频谱和输出设置仅影响本地文件，Spotify Connect 设备列表也由 Soloist 管理。
+settings-soloist-looking = 正在查找…
+settings-soloist-off = 未配置
+settings-soloist-setting-up = 正在配置…
+settings-soloist-ready = 版本 { $version }
+settings-soloist-unavailable = 使用 Soloist 时不可用
+settings-soloist-local-only = Soloist 播放 Spotify 时，仅适用于本地文件
+settings-soloist-setup = 配置
+settings-soloist-remove = 移除
+confirm-remove-soloist-title = 移除 Soloist？
+confirm-remove-soloist = Sonora 将删除 Soloist 程序、你的 API 密钥及其登录信息，Spotify 将恢复使用内置播放器。
+soloist-setup-title = 配置 Soloist
+soloist-offered = Spotify 拒绝通过内置播放器播放此账户的音乐。Soloist 可以播放。
+soloist-step-download = 下载
+soloist-step-key = API 密钥
+soloist-step-pair = 配对
+soloist-terms = Sonora 从 Spotify 下载 Soloist。使用它表示你接受 Spotify 的使用条款。
+soloist-terms-open = 阅读条款
+soloist-download = 下载
+soloist-later = 暂不配置
+soloist-downloading = 正在从 Spotify 下载…
+soloist-key-step-open = 打开 Spotify 开发者控制台中的 Soloist 页面
+soloist-key-step-generate = 在该页面接受条款并生成 API 密钥
+soloist-key-step-paste = 将密钥粘贴到下方
+soloist-key-open = 打开开发者控制台
+soloist-key-hint = API 密钥
+soloist-continue = 继续
+soloist-pair-step-open = 在同一网络中的手机或电脑上打开 Spotify
+soloist-pair-step-play = 在该设备上播放任意歌曲
+soloist-pair-step-pick = 打开设备列表并选择 { $device }
+soloist-pair-waiting = 正在等待 Spotify…
+soloist-pair-firewall = 找不到设备？请确保这台电脑的防火墙允许 UDP 5353 和 TCP { $port } 端口的连接。
+soloist-back = 返回
+soloist-problem-download = 无法下载 Soloist
+soloist-problem-key = Spotify 未接受此密钥
+soloist-problem-key-detail = 请检查密钥是否复制完整且未被撤销，然后重试。
+soloist-problem-account = 配对了其他账户
+soloist-problem-account-detail = 该 Spotify 应用登录的是 { $name }，与 Sonora 使用的账户不同。请从登录了你自己账户的应用中选择设备。
+soloist-problem-waited = 没有设备完成配对
+soloist-problem-waited-detail = 配对最多等待十分钟。请准备好 Spotify 应用后重试。
+soloist-problem-pairing = 配对失败
+equalizer-status-direct = 由 Soloist 直接播放，不经过 Sonora
+toast-soloist-setup = 配置 Soloist
+toast-soloist-refused = Soloist 无法继续登录
+toast-soloist-ready = Spotify 现在通过 Soloist 播放
+toast-soloist-remove-failed = 无法移除 Soloist
+
+# Discord covers and scrobbling
+settings-discord-name-album-artist = 专辑艺术家
+settings-discord-upload-covers = 上传封面
+settings-discord-upload-covers-detail = 将服务器或本地文件中的封面上传到 uguu.se，保留 3 小时，让状态显示这张封面，而不是在网上查找的其他封面
+settings-scrobble-provider = 记录 { $provider } 的播放
+settings-scrobble-provider-detail = 如果 { $provider } 已经向 Last.fm 提交播放记录，请关闭此项，避免同一次播放被重复计数
+settings-scrobble-server-optional = 服务器地址（可选）
+
+# lyrics selection
+settings-lyrics-word-synced-first = 优先逐字同步歌词
+settings-lyrics-word-synced-first-detail = 优先显示按字同步的歌词，即使它来自列表中优先级较低的来源

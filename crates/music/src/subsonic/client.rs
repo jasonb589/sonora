@@ -7,7 +7,10 @@ use async_trait::async_trait;
 use futures::{StreamExt as _, stream};
 use opensubsonic::api::lists::AlbumListType;
 use opensubsonic::data::{AlbumId3, AlbumWithSongsId3, Child, Genre as SourceGenre};
-use opensubsonic::{Auth, Client};
+use opensubsonic::{
+    AlbumListOptions, Auth, Client, RandomSongsOptions, Search3Options, StreamOptions,
+    UpdatePlaylistOptions,
+};
 use tokio::sync::OnceCell;
 use tokio::task::JoinSet;
 
@@ -55,7 +58,7 @@ pub struct SubsonicClient {
     signed: String,
     /// The server address with no trailing slash.
     server: String,
-    http: reqwest::Client,
+    pub(super) http: reqwest::Client,
     /// The cover art endpoint with the fixed signature already on it. The library client signs
     /// every url afresh, which would give one cover a new url on every conversion and defeat
     /// every image cache between here and the screen.
@@ -65,12 +68,14 @@ pub struct SubsonicClient {
 }
 
 /// What the server records about a track that playback wants before the decoder can tell.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Details {
     pub duration: Option<Duration>,
     /// The track's ReplayGain, which OpenSubsonic servers such as Navidrome report and plain
     /// Subsonic servers do not.
     pub loudness: Option<Loudness>,
+    /// The artist and title, which a plain download's file is named after.
+    pub label: Option<String>,
 }
 
 impl SubsonicClient {
@@ -387,7 +392,7 @@ impl MusicApi for SubsonicClient {
         if top_tracks.is_empty()
             && let Ok(similar) = self
                 .client
-                .search3(&name, None, None, None, None, Some(10), None, None)
+                .search3(&name, &Search3Options::new().song_count(10))
                 .await
                 .map_err(bare)
         {
@@ -492,13 +497,11 @@ impl MusicApi for SubsonicClient {
                 .client
                 .search3(
                     "",
-                    Some(0),
-                    None,
-                    Some(0),
-                    None,
-                    Some(LIBRARY_PAGE),
-                    Some(offset),
-                    None,
+                    &Search3Options::new()
+                        .artist_count(0)
+                        .album_count(0)
+                        .song_count(LIBRARY_PAGE)
+                        .song_offset(offset),
                 )
                 .await
                 .map_err(bare)
@@ -605,7 +608,7 @@ impl MusicApi for SubsonicClient {
 
     async fn rename_playlist(&self, playlist_id: &str, name: &str) -> Result<()> {
         self.client
-            .update_playlist(playlist_id, Some(name), None, None, &[], &[])
+            .update_playlist(playlist_id, &UpdatePlaylistOptions::new().name(name))
             .await
             .map_err(bare)
             .context("cannot rename the playlist")
@@ -629,7 +632,7 @@ impl MusicApi for SubsonicClient {
 
     async fn set_playlist_public(&self, playlist_id: &str, public: bool) -> Result<()> {
         self.client
-            .update_playlist(playlist_id, None, None, Some(public), &[], &[])
+            .update_playlist(playlist_id, &UpdatePlaylistOptions::new().public(public))
             .await
             .map_err(bare)
             .context("cannot change the playlist visibility")
@@ -682,7 +685,10 @@ impl MusicApi for SubsonicClient {
 
     async fn add_track_to_playlist(&self, playlist_id: &str, track_id: &str) -> Result<()> {
         self.client
-            .update_playlist(playlist_id, None, None, None, &[track_id], &[])
+            .update_playlist(
+                playlist_id,
+                &UpdatePlaylistOptions::new().add_song(track_id),
+            )
             .await
             .map_err(bare)
             .context("cannot add the track to the playlist")
@@ -701,7 +707,10 @@ impl MusicApi for SubsonicClient {
             .position(|song| song.id == track_id)
             .context("track is not in the playlist")? as i32;
         self.client
-            .update_playlist(playlist_id, None, None, None, &[], &[index])
+            .update_playlist(
+                playlist_id,
+                &UpdatePlaylistOptions::new().remove_index(index),
+            )
             .await
             .map_err(bare)
             .context("cannot remove the track from the playlist")
@@ -729,12 +738,7 @@ impl MusicApi for SubsonicClient {
                 .client
                 .get_album_list2(
                     AlbumListType::AlphabeticalByName,
-                    Some(LIBRARY_PAGE),
-                    Some(offset),
-                    None,
-                    None,
-                    None,
-                    None,
+                    &AlbumListOptions::new().size(LIBRARY_PAGE).offset(offset),
                 )
                 .await
                 .map_err(bare)
@@ -941,7 +945,7 @@ impl MusicApi for SubsonicClient {
         }
         let random = self
             .client
-            .get_random_songs(Some(20), None, None, None, None)
+            .get_random_songs(&RandomSongsOptions::new().size(20))
             .await
             .map_err(bare)
             .context("cannot load a radio fallback")?;
@@ -958,7 +962,7 @@ impl MusicApi for SubsonicClient {
     async fn search(&self, query: &str) -> Result<Vec<Track>> {
         let found = self
             .client
-            .search3(query, None, None, None, None, Some(50), None, None)
+            .search3(query, &Search3Options::new().song_count(50))
             .await
             .map_err(bare)
             .context("cannot search")?;
@@ -968,7 +972,7 @@ impl MusicApi for SubsonicClient {
     async fn search_albums(&self, query: &str) -> Result<Vec<Album>> {
         let found = self
             .client
-            .search3(query, None, None, Some(30), None, None, None, None)
+            .search3(query, &Search3Options::new().album_count(30))
             .await
             .map_err(bare)
             .context("cannot search albums")?;
@@ -982,7 +986,13 @@ impl MusicApi for SubsonicClient {
     async fn search_artists(&self, query: &str) -> Result<Vec<SavedArtist>> {
         let found = self
             .client
-            .search3(query, Some(30), None, Some(0), None, Some(0), None, None)
+            .search3(
+                query,
+                &Search3Options::new()
+                    .artist_count(30)
+                    .album_count(0)
+                    .song_count(0),
+            )
             .await
             .map_err(bare)
             .context("cannot search artists")?;
@@ -1013,7 +1023,7 @@ impl MusicApi for SubsonicClient {
     async fn home(&self) -> Result<HomeFeed> {
         let random = self
             .client
-            .get_random_songs(Some(HOME_SONGS), None, None, None, None)
+            .get_random_songs(&RandomSongsOptions::new().size(HOME_SONGS))
             .await
             .map_err(bare)
             .map(|songs| {
@@ -1068,12 +1078,7 @@ impl MusicApi for SubsonicClient {
             .client
             .get_album_list2(
                 AlbumListType::ByGenre,
-                Some(50),
-                None,
-                None,
-                None,
-                Some(genre_id),
-                None,
+                &AlbumListOptions::new().size(50).genre(genre_id),
             )
             .await
             .map_err(bare)
@@ -1100,12 +1105,7 @@ impl MusicApi for SubsonicClient {
             .client
             .get_album_list2(
                 AlbumListType::ByGenre,
-                Some(1),
-                None,
-                None,
-                None,
-                Some(genre_id),
-                None,
+                &AlbumListOptions::new().size(1).genre(genre_id),
             )
             .await
             .map_err(bare)
@@ -1145,7 +1145,7 @@ impl SubsonicClient {
         size: i32,
     ) -> Vec<Album> {
         self.client
-            .get_album_list2(kind, Some(size), None, None, None, None, None)
+            .get_album_list2(kind, &AlbumListOptions::new().size(size))
             .await
             .map_err(bare)
             .map(|albums| {
@@ -1172,9 +1172,16 @@ impl SubsonicClient {
     ) -> Result<reqwest::Response> {
         let bitrate = transcode.bitrate.and_then(|kbps| i32::try_from(kbps).ok());
         let format = transcode.codec.map(Codec::id);
+        let mut options = StreamOptions::new();
+        if let Some(bitrate) = bitrate {
+            options = options.max_bit_rate(bitrate);
+        }
+        if let Some(format) = format {
+            options = options.format(format);
+        }
         let url = self
             .client
-            .stream_url(track_id, bitrate, format)
+            .stream_url(track_id, &options)
             .context("cannot build the stream url")?;
         self.http
             .get(url)
@@ -1233,7 +1240,15 @@ impl SubsonicClient {
                 peak.map(|peak| peak as f32),
             ))
         });
-        Details { duration, loudness }
+        let label = match song.artist.as_deref().map(str::trim) {
+            Some(artist) if !artist.is_empty() => format!("{artist} - {}", song.title.trim()),
+            _ => song.title.trim().to_owned(),
+        };
+        Details {
+            duration,
+            loudness,
+            label: Some(label),
+        }
     }
 }
 

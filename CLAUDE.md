@@ -100,8 +100,8 @@ cargo clippy --workspace --all-targets
 ```
 
 The devShell has no `cargo` or `cargo-clippy`; those come from the system profile. The flake's
-default package is the released binary, so `nix build` never sees the working tree, while
-`nix build .#sonora-src` compiles it.
+default package compiles the working tree. CI caches the `stable` branch, the `nightly` tag and
+main on sonora.cachix.org.
 `.cargo/config.toml` links with mold on `x86_64-unknown-linux-gnu`, so mold must be on PATH, or
 build with `RUSTFLAGS=""`. `crates/widevine` compiles C++, so a C++ compiler is needed too.
 
@@ -172,7 +172,7 @@ line saying what someone using Sonora can now do, since the notes are posted to 
 implementation details and any work no user can observe. Cutting a release is the
 `release-sonora` skill.
 
-## This copy (`jasonb589/sonora`)
+## This copy (`syntaxia93/sonora`)
 
 This checkout is a fork maintained without a Rust toolchain: nothing here is built or tested
 locally, and every check runs on GitHub Actions.
@@ -181,7 +181,7 @@ locally, and every check runs on GitHub Actions.
   `cargo test --workspace --locked`, all on `windows-latest`). Write code in rustfmt's style by
   hand: `max_width` 100, comments are not reflowed, and a let-chain breaks before `&&`. A
   docs-only change may be pushed straight to `main`, which runs no workflow.
-- **Releases.** `gh workflow run windows.yml -R jasonb589/sonora --ref main -f version=X`. The
+- **Releases.** `gh workflow run windows.yml -R syntaxia93/sonora --ref main -f version=X`. The
   tag is `windows-X` (upstream's `v*` tags are never fetched, so they cannot collide), the title
   is that same version, and the notes put a hand-written "What's new" above the workflow's
   auto-generated "What's Changed". The installer is handed out from the release alone.

@@ -6,7 +6,7 @@ use gpui::prelude::*;
 use gpui::{AnyElement, Context, FontWeight, SharedString, div, img};
 use i18n::t;
 use state::Channel;
-use ui::{ActiveTheme as _, Avatar, Switch, Text};
+use ui::{ActiveTheme as _, Avatar, Glowing as _, Switch, Text};
 
 use super::rows::{outward, segmented};
 use super::{Group, SettingsView, Slot, group_heading};
@@ -17,7 +17,7 @@ const MARK_TILE: f32 = 0.5;
 const APP_ICON: &str = "brand/sonora.svg";
 const LICENSE_URL: &str = "https://www.gnu.org/licenses/gpl-3.0.html";
 /// The source of the build this copy of Sonora is, which the GPL asks this page to offer.
-const SOURCE_URL: &str = "https://github.com/jasonb589/sonora";
+const SOURCE_URL: &str = "https://github.com/syntaxia93/sonora";
 
 #[derive(Clone, Copy)]
 struct Member {
@@ -79,7 +79,7 @@ impl SettingsView {
     pub(super) fn version_row(&self) -> AnyElement {
         self.row(
             t!("settings-version"),
-            ui::spoken("settings-version-value", state::VERSION).into_any_element(),
+            ui::spoken("settings-version-value", state::version()).into_any_element(),
         )
     }
 
@@ -221,7 +221,6 @@ impl SettingsView {
                     .px_3()
                     .rounded(theme.radius)
                     .cursor_pointer()
-                    .hover(|style| style.bg(theme.secondary_hover))
                     .on_click(move |_, _, cx| cx.open_url(member.profile))
                     .child(Avatar::new(Some(member.avatar)).size(theme.metrics.thumb))
                     .child(
@@ -239,6 +238,7 @@ impl SettingsView {
                             .text_color(theme.muted_foreground)
                             .child(member.role.label()),
                     )
+                    .glowed(theme.secondary_hover)
             }))
     }
 }
