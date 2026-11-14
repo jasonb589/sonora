@@ -144,7 +144,7 @@ fn fetch(
                         let first_line = reason.lines().next().unwrap_or("").trim_end();
                         reason.truncate(first_line.len());
                         return Err(ImageCacheError::BadStatus {
-                            uri: uri.clone(),
+                            uri,
                             status: response.status(),
                             body: reason,
                         });
