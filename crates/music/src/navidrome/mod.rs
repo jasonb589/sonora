@@ -15,6 +15,12 @@ pub use lyrics::NavidromeLyrics;
 use crate::navidrome::playback::Factory;
 use crate::{Capabilities, Catalog, MusicApi as _, MusicProvider, ProviderSession, Shape, SignIn};
 
+/// The native player has no download shelf, so download controls would always fail.
+const CAPABILITIES: Capabilities = Capabilities {
+    downloads: false,
+    ..Capabilities::ALL
+};
+
 pub struct NavidromeProvider;
 
 impl NavidromeProvider {
@@ -54,7 +60,7 @@ impl NavidromeProvider {
             playback: Arc::new(Factory::new(client)),
             shape: Shape::Catalog(Catalog::Fixed),
             authenticated: true,
-            capabilities: Capabilities::ALL,
+            capabilities: CAPABILITIES,
         })
     }
 
@@ -83,7 +89,7 @@ impl NavidromeProvider {
                     playback: Arc::new(Factory::new(client)),
                     shape: Shape::Catalog(Catalog::Fixed),
                     authenticated: true,
-                    capabilities: Capabilities::ALL,
+                    capabilities: CAPABILITIES,
                 }))
             }
             Err(error) if crate::trouble::offline(&format!("{error:#}")) => Err(error),
